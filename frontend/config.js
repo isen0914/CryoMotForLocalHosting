@@ -4,8 +4,8 @@ const API_CONFIG = {
     // For local development
     LOCAL: "http://127.0.0.1:8000",
     
-    // For production - replace this with your Render backend URL after deployment
-    PRODUCTION: "https://your-backend-name.onrender.com",
+    // For production - Render backend URL
+    PRODUCTION: "https://cryomotdeployment.onrender.com",
 };
 
 // Automatically detect environment

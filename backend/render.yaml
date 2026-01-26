@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: cryomot-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: ..
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: 1
+    healthCheckPath: /
+    autoDeploy: true

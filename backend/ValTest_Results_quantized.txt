@@ -1,0 +1,46 @@
+Tomogram_ID: tomo_2acf68
+
+
+GT Motors in Tomogram: 1
+
+Location: SLICE [tomo_2acf68_0135]
+	GT_X: 468
+	GT_Y: 225
+	GT_Z: 135
+
+RESULTS: best.quant.onnx
+Total # of detected motors Before Post: 17
+Total # of detected motors After Post: 1
+Total # of Correctly Detected Motors: 1
+EUCLIDEAN_DISTANCE: 0.8nm
+Confidence: 0.44
+BEFORE (raw): DETECTED
+AFTER (post): DETECTED
+Detected slices with motors:
+	tomo_2acf68_0127
+	tomo_2acf68_0128
+	tomo_2acf68_0129
+	tomo_2acf68_0130
+	tomo_2acf68_0131
+	tomo_2acf68_0132
+	tomo_2acf68_0133
+	tomo_2acf68_0134
+	tomo_2acf68_0135
+	tomo_2acf68_0136
+	tomo_2acf68_0137
+	tomo_2acf68_0138
+	tomo_2acf68_0139
+	tomo_2acf68_0140
+	tomo_2acf68_0141
+	tomo_2acf68_0142
+	tomo_2acf68_0143
+
+Final 3D Coordinates After Post: 
+	Final_X: 467.0
+	Final_Y: 225.0
+	Final_Z: 135.0
+Final Representative Slice:
+	tomo_2acf68_0135
+
+================================================================================
+

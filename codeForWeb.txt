@@ -1,0 +1,174 @@
+# ============================================================================
+# FLAGELLAR MOTOR DETECTOR - WEB PLATFORM VERSION
+# ============================================================================
+
+from ultralytics import YOLO
+from sklearn.cluster import DBSCAN
+import numpy as np
+from collections import defaultdict
+
+class FlagellarMotorDetector:
+    def __init__(self, model_path='best.pt'):
+        """Initialize detector with trained YOLOv12 model"""
+        self.model = YOLO(model_path)
+        
+        # Parameters from your 82% F-beta experiment
+        self.CONF_THRESHOLD = 0.25
+        self.DBSCAN_EPS = 50
+        self.DBSCAN_MIN_SAMPLES = 3
+        self.MIN_CLUSTER_SIZE = 3
+        self.MIN_DISTANCE = 100
+    
+    def detect_motors(self, image_folder):
+        """
+        Detect flagellar motors in tomogram slices
+        
+        Args:
+            image_folder (str): Path to folder with images (tomo_XXXXX_YYYY.jpg)
+        
+        Returns:
+            dict: {tomo_id: [motor_detections]}
+        """
+        # Step 1: Run YOLO inference
+        results = self.model.predict(
+            source=image_folder,
+            imgsz=640,
+            conf=self.CONF_THRESHOLD,
+            iou=0.45,
+            verbose=False,
+            save=False
+        )
+        
+        # Step 2: Organize detections by tomogram
+        detections_by_tomo = self._organize_detections(results, image_folder)
+        
+        # Step 3: DBSCAN 3D clustering
+        motors_3d = self._cluster_3d(detections_by_tomo)
+        
+        return motors_3d
+    
+    def _organize_detections(self, results, image_folder):
+        """Organize YOLO detections by tomogram ID"""
+        from pathlib import Path
+        
+        detections_by_tomo = defaultdict(list)
+        image_paths = sorted(list(Path(image_folder).glob('*.jpg')))
+        
+        for r, img_path in zip(results, image_paths):
+            filename = img_path.stem
+            parts = filename.split('_')
+            
+            if len(parts) >= 3:
+                tomo_id = f"{parts[0]}_{parts[1]}"
+                slice_num = int(parts[2])
+                
+                if len(r.boxes) > 0:
+                    for box in r.boxes:
+                        xywh = box.xywh[0].cpu().numpy()
+                        
+                        det = {
+                            'x': float(xywh[0]),
+                            'y': float(xywh[1]),
+                            'z': slice_num,
+                            'conf': float(box.conf[0]),
+                            'x_norm': float(xywh[0]) / 640,
+                            'y_norm': float(xywh[1]) / 640
+                        }
+                        
+                        detections_by_tomo[tomo_id].append(det)
+        
+        return detections_by_tomo
+    
+    def _cluster_3d(self, detections_by_tomo):
+        """Apply DBSCAN clustering to group 2D detections into 3D motors"""
+        predictions_3d = {}
+        
+        for tomo_id, detections in detections_by_tomo.items():
+            if len(detections) < self.DBSCAN_MIN_SAMPLES:
+                # Too few detections, keep as-is
+                predictions_3d[tomo_id] = [{
+                    'x_pixel': d['x'],
+                    'y_pixel': d['y'],
+                    'z': d['z'],
+                    'conf': d['conf'],
+                    'cluster_size': 1
+                } for d in detections]
+                continue
+            
+            # Cluster in 3D space
+            points = np.array([[d['x'], d['y'], d['z']] for d in detections])
+            clustering = DBSCAN(
+                eps=self.DBSCAN_EPS,
+                min_samples=self.DBSCAN_MIN_SAMPLES
+            )
+            labels = clustering.fit_predict(points)
+            
+            n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+            
+            motors = []
+            for cid in range(n_clusters):
+                mask = (labels == cid)
+                cluster_dets = [d for d, m in zip(detections, mask) if m]
+                
+                if len(cluster_dets) < self.MIN_CLUSTER_SIZE:
+                    continue
+                
+                # Compute 3D centroid
+                x_pixel = np.mean([d['x'] for d in cluster_dets])
+                y_pixel = np.mean([d['y'] for d in cluster_dets])
+                z_avg = np.mean([d['z'] for d in cluster_dets])
+                
+                motors.append({
+                    'x_pixel': x_pixel,
+                    'y_pixel': y_pixel,
+                    'z': z_avg,
+                    'conf': np.mean([d['conf'] for d in cluster_dets]),
+                    'cluster_size': len(cluster_dets)
+                })
+            
+            # Remove duplicate motors (distance filtering)
+            filtered = self._filter_duplicates(motors)
+            predictions_3d[tomo_id] = filtered
+        
+        return predictions_3d
+    
+    def _filter_duplicates(self, motors):
+        """Remove duplicate motors that are too close together"""
+        filtered = []
+        
+        for motor in motors:
+            is_duplicate = False
+            
+            for existing in filtered:
+                dist = np.sqrt(
+                    (motor['x_pixel'] - existing['x_pixel'])**2 +
+                    (motor['y_pixel'] - existing['y_pixel'])**2 +
+                    (motor['z'] - existing['z'])**2
+                )
+                
+                if dist < self.MIN_DISTANCE:
+                    is_duplicate = True
+                    break
+            
+            if not is_duplicate:
+                filtered.append(motor)
+        
+        return filtered
+
+
+# ============================================================================
+# USAGE EXAMPLE
+# ============================================================================
+
+if __name__ == "__main__":
+    # Initialize detector
+    detector = FlagellarMotorDetector('path/to/best.pt')
+    
+    # Run detection
+    results = detector.detect_motors('path/to/images/')
+    
+    # Print results
+    for tomo_id, motors in results.items():
+        print(f"\n{tomo_id}: {len(motors)} motors detected")
+        for i, motor in enumerate(motors, 1):
+            print(f"  Motor {i}: ({motor['x_pixel']:.1f}, {motor['y_pixel']:.1f}, z={motor['z']:.1f})")

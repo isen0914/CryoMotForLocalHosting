@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+python-multipart
+ultralytics
+torch
+Pillow
+scikit-image
+
+# for ONNX export & quantized inference
+onnx
+onnxruntime

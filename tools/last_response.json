@@ -1,0 +1,52 @@
+[
+  {
+    "stage": "received"
+  },
+  {
+    "stage": "preprocessing",
+    "message": "Loading images..."
+  },
+  {
+    "stage": "preprocessing",
+    "message": "Applying masking..."
+  },
+  {
+    "stage": "preprocessing_complete",
+    "processed_volume_url": "/outputs/sample_processed_volume.npy",
+    "preprocessing_previews": [
+      "/outputs/sample_preprocessed_preview_00_z0000.png"
+    ],
+    "message": "Preprocessing complete. Starting detection..."
+  },
+  {
+    "stage": "inference",
+    "progress": 100,
+    "image": "test1.jpg",
+    "annotated_url": "/outputs/test1_annotated.jpg",
+    "transparent_url": "/outputs/test1_transparent.png",
+    "slice_url": "/outputs/test1_slice_000.png"
+  },
+  {
+    "stage": "postprocessing_complete",
+    "total_motors": 0,
+    "motors_by_tomo": {}
+  },
+  {
+    "results": [
+      {
+        "image": "test1.jpg",
+        "boxes": [],
+        "annotated_url": "/outputs/test1_annotated.jpg",
+        "transparent_url": "/outputs/test1_transparent.png",
+        "slice_url": "/outputs/test1_slice_000.png"
+      }
+    ],
+    "volume_url": "/outputs/sample_volume.npy",
+    "transparent_volume_url": "/outputs/sample_transparent_volume.npy",
+    "processed_volume_url": "/outputs/sample_processed_volume.npy",
+    "elapsed_ms": 2696,
+    "total_motors": 0,
+    "motors_by_tomo": {},
+    "motors_coordinates": {}
+  }
+]

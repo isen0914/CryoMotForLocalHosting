@@ -1,0 +1,3 @@
+{"stage": "received"}
+{"progress": 100, "image": "test1.jpg"}
+{"results": [{"image": "test1.jpg", "boxes": [], "annotated_url": "/outputs/test1_annotated.jpg", "transparent_url": "/outputs/test1_transparent.png", "slice_url": "/outputs/test1_slice_000.png"}], "volume_url": "/outputs/sample_volume.npy", "transparent_volume_url": "/outputs/sample_transparent_volume.npy", "elapsed_ms": 2705, "total_motors": 0, "motors_by_tomo": {}}

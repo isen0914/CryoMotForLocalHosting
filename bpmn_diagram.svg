@@ -1,0 +1,325 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 2000 1500" width="2000" height="1500">
+  <defs>
+    <!-- Arrow markers -->
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#333"/>
+    </marker>
+    <marker id="arrow-dashed" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#666"/>
+    </marker>
+    
+    <!-- Shadow filters -->
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+  
+  <style>
+    /* BPMN Standard Styles */
+    .pool-header { fill: #D4E7F5; stroke: #0077B5; stroke-width: 2; }
+    .lane { fill: #F0F8FF; stroke: #0077B5; stroke-width: 1.5; }
+    .task { fill: #E3F2FD; stroke: #1976D2; stroke-width: 2; rx: 10; ry: 10; }
+    .subprocess { fill: #FFF3E0; stroke: #F57C00; stroke-width: 2; rx: 10; ry: 10; }
+    .gateway { fill: #FFF9C4; stroke: #F9A825; stroke-width: 2.5; }
+    .event-start { fill: #C8E6C9; stroke: #388E3C; stroke-width: 3; }
+    .event-end { fill: #FFCDD2; stroke: #D32F2F; stroke-width: 4; }
+    .event-intermediate { fill: #FFF; stroke: #1976D2; stroke-width: 2.5; }
+    .data-object { fill: #F5F5F5; stroke: #616161; stroke-width: 1.5; }
+    .sequence-flow { stroke: #333; stroke-width: 2; fill: none; }
+    .message-flow { stroke: #666; stroke-width: 2; fill: none; stroke-dasharray: 8,4; }
+    .text-title { font-family: Arial, sans-serif; font-size: 13px; font-weight: bold; fill: #000; text-anchor: middle; }
+    .text-label { font-family: Arial, sans-serif; font-size: 11px; fill: #333; text-anchor: middle; }
+    .text-header { font-family: Arial, sans-serif; font-size: 24px; font-weight: bold; fill: #0077B5; text-anchor: middle; }
+    .text-lane { font-family: Arial, sans-serif; font-size: 14px; font-weight: bold; fill: #0077B5; writing-mode: tb; }
+  </style>
+  
+  <!-- Title -->
+  <text x="1000" y="40" class="text-header">CRYOMOT - Business Process Model and Notation</text>
+  <text x="1000" y="65" style="font-family: Arial; font-size: 14px; fill: #666; text-anchor: middle;">Flagellar Motor Detection Pipeline</text>
+  
+  <!-- Pool: CRYOMOT Detection System -->
+  <rect x="50" y="100" width="1900" height="1150" class="pool-header" filter="url(#shadow)"/>
+  <text x="70" y="305" class="text-lane">CRYOMOT - A Deep Learning-Based Detection Of Bacterial Flagellar Motor in 3D Microscopy Reconstructions</text>
+  
+  <!-- Lane 1: Researcher/User -->
+  <rect x="120" y="100" width="1830" height="180" class="lane"/>
+  <text x="140" y="195" class="text-lane">Researcher</text>
+  
+  <!-- Lane 2: Backend Processing -->
+  <rect x="120" y="280" width="1830" height="700" class="lane"/>
+  <text x="140" y="630" class="text-lane">Backend (FastAPI)</text>
+  
+  <!-- Lane 3: Frontend Visualization -->
+  <rect x="120" y="980" width="1830" height="270" class="lane"/>
+  <text x="140" y="1115" class="text-lane">Frontend (VTK.js)</text>
+  
+  <!-- ========== RESEARCHER LANE ========== -->
+  
+  <!-- Start Event -->
+  <circle cx="230" cy="190" r="30" class="event-start" filter="url(#shadow)"/>
+  <text x="230" y="197" style="font-family: Arial; font-size: 16px; font-weight: bold; fill: #388E3C; text-anchor: middle;">START</text>
+  <text x="230" y="245" class="text-label">Upload ZIP</text>
+  
+  <!-- Task: Prepare ZIP File -->
+  <rect x="320" y="160" width="140" height="60" class="task" filter="url(#shadow)"/>
+  <text x="390" y="185" class="text-title">Prepare ZIP</text>
+  <text x="390" y="202" class="text-label">with Images</text>
+  
+  <!-- Gateway: Submit? -->
+  <path d="M 550 160 L 600 190 L 550 220 L 500 190 Z" class="gateway" filter="url(#shadow)"/>
+  <text x="550" y="197" style="font-family: Arial; font-size: 18px; font-weight: bold; fill: #F57C00; text-anchor: middle;">?</text>
+  <text x="550" y="235" class="text-label">Submit?</text>
+  
+  <!-- ========== BACKEND LANE ========== -->
+  
+  <!-- Task: Receive & Validate -->
+  <rect x="270" y="340" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="340" y="365" class="text-title">Receive &</text>
+  <text x="340" y="382" class="text-title">Validate ZIP</text>
+  <text x="340" y="399" class="text-label">(POST /detect/)</text>
+  
+  <!-- Task: Extract ZIP -->
+  <rect x="450" y="340" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="520" y="365" class="text-title">Extract ZIP</text>
+  <text x="520" y="382" class="text-label">to Temp Dir</text>
+  <text x="520" y="399" class="text-label">(zipfile.extractall)</text>
+  
+  <!-- Task: Load & Resize -->
+  <rect x="630" y="340" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="700" y="365" class="text-title">Load & Resize</text>
+  <text x="700" y="382" class="text-label">Images (250x250)</text>
+  <text x="700" y="399" class="text-label">(skimage.resize)</text>
+  
+  <!-- Parallel Gateway: Fork -->
+  <path d="M 860 340 L 910 375 L 860 410 L 810 375 Z" class="gateway" filter="url(#shadow)"/>
+  <text x="860" y="385" style="font-family: Arial; font-size: 22px; font-weight: bold; fill: #F57C00; text-anchor: middle;">+</text>
+  <text x="860" y="440" class="text-label">Parallel</text>
+  
+  <!-- Branch 1: Masking (Top) -->
+  <rect x="960" y="310" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1030" y="335" class="text-title">Apply Otsu</text>
+  <text x="1030" y="352" class="text-title">Masking</text>
+  <text x="1030" y="369" class="text-label">(threshold=0.78)</text>
+  
+  <!-- Save Processed Volume -->
+  <rect x="1140" y="310" width="110" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1195" y="340" class="text-title">Save</text>
+  <text x="1195" y="357" class="text-title">Processed</text>
+  <text x="1195" y="374" class="text-label">Volume (.npy)</text>
+  
+  <!-- Branch 2: YOLO (Bottom) -->
+  <rect x="960" y="440" width="140" height="70" class="subprocess" filter="url(#shadow)"/>
+  <text x="1030" y="465" class="text-title">Run YOLO</text>
+  <text x="1030" y="482" class="text-title">Detection</text>
+  <text x="1030" y="499" class="text-label">(on originals)</text>
+  
+  <!-- Save Annotated -->
+  <rect x="1140" y="440" width="110" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1195" y="470" class="text-title">Save</text>
+  <text x="1195" y="487" class="text-title">Annotated</text>
+  <text x="1195" y="504" class="text-label">Images</text>
+  
+  <!-- Parallel Gateway: Join -->
+  <path d="M 1310 385 L 1360 420 L 1310 455 L 1260 420 Z" class="gateway" filter="url(#shadow)"/>
+  <text x="1310" y="430" style="font-family: Arial; font-size: 22px; font-weight: bold; fill: #F57C00; text-anchor: middle;">+</text>
+  
+  <!-- Task: Organize Detections -->
+  <rect x="1410" y="415" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1480" y="440" class="text-title">Organize</text>
+  <text x="1480" y="457" class="text-title">Detections</text>
+  <text x="1480" y="474" class="text-label">(by tomogram)</text>
+  
+  <!-- Task: DBSCAN Clustering -->
+  <rect x="1590" y="415" width="140" height="70" class="subprocess" filter="url(#shadow)"/>
+  <text x="1660" y="440" class="text-title">DBSCAN 3D</text>
+  <text x="1660" y="457" class="text-title">Clustering</text>
+  <text x="1660" y="474" class="text-label">(eps=50, min=3)</text>
+  
+  <!-- Task: Generate Volumes -->
+  <rect x="1410" y="550" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1480" y="575" class="text-title">Generate</text>
+  <text x="1480" y="592" class="text-title">3D Volumes</text>
+  <text x="1480" y="609" class="text-label">(transparent+combined)</text>
+  
+  <!-- Task: Save Volumes -->
+  <rect x="1590" y="550" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1660" y="575" class="text-title">Save Volume</text>
+  <text x="1660" y="592" class="text-title">Files</text>
+  <text x="1660" y="609" class="text-label">(.npy to D2)</text>
+  
+  <!-- Intermediate Event: Stream Progress -->
+  <circle cx="1480" cy="720" r="25" class="event-intermediate" filter="url(#shadow)"/>
+  <circle cx="1480" cy="720" r="20" class="event-intermediate"/>
+  <text x="1480" y="727" style="font-family: Arial; font-size: 11px; font-weight: bold; fill: #1976D2; text-anchor: middle;">JSON</text>
+  <text x="1480" y="765" class="text-label">Stream Results</text>
+  
+  <!-- Task: Store History -->
+  <rect x="1770" y="550" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1840" y="575" class="text-title">Store History</text>
+  <text x="1840" y="592" class="text-label">(history_data.json)</text>
+  <text x="1840" y="609" class="text-label">POST /api/history</text>
+  
+  <!-- ========== FRONTEND LANE ========== -->
+  
+  <!-- Task: Receive Data -->
+  <rect x="280" y="1050" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="350" y="1075" class="text-title">Receive</text>
+  <text x="350" y="1092" class="text-title">Results</text>
+  <text x="350" y="1109" class="text-label">(Streaming JSON)</text>
+  
+  <!-- Task: Load Volumes -->
+  <rect x="460" y="1050" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="530" y="1075" class="text-title">Load Volume</text>
+  <text x="530" y="1092" class="text-title">Files</text>
+  <text x="530" y="1109" class="text-label">(.npy from backend)</text>
+  
+  <!-- Task: Render VTK -->
+  <rect x="640" y="1050" width="140" height="70" class="subprocess" filter="url(#shadow)"/>
+  <text x="710" y="1075" class="text-title">Render 3D</text>
+  <text x="710" y="1092" class="text-title">Visualization</text>
+  <text x="710" y="1109" class="text-label">(VTK.js)</text>
+  
+  <!-- Task: Display Results -->
+  <rect x="820" y="1050" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="890" y="1075" class="text-title">Display</text>
+  <text x="890" y="1092" class="text-title">Interactive</text>
+  <text x="890" y="1109" class="text-label">3D View</text>
+  
+  <!-- Gateway: User Actions -->
+  <path d="M 1050 1050 L 1100 1085 L 1050 1120 L 1000 1085 Z" class="gateway" filter="url(#shadow)"/>
+  <text x="1050" y="1095" style="font-family: Arial; font-size: 18px; font-weight: bold; fill: #F57C00; text-anchor: middle;">?</text>
+  <text x="1050" y="1150" class="text-label">User Action?</text>
+  
+  <!-- Task: Export Results -->
+  <rect x="1160" y="1050" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1230" y="1075" class="text-title">Export</text>
+  <text x="1230" y="1092" class="text-title">Results</text>
+  <text x="1230" y="1109" class="text-label">(Download .npy)</text>
+  
+  <!-- Task: View History -->
+  <rect x="1340" y="1050" width="140" height="70" class="task" filter="url(#shadow)"/>
+  <text x="1410" y="1075" class="text-title">View</text>
+  <text x="1410" y="1092" class="text-title">History</text>
+  <text x="1410" y="1109" class="text-label">(GET /api/history)</text>
+  
+  <!-- End Event -->
+  <circle cx="1550" cy="1085" r="30" class="event-end" filter="url(#shadow)"/>
+  <circle cx="1550" cy="1085" r="25" class="event-end"/>
+  <text x="1550" y="1093" style="font-family: Arial; font-size: 14px; font-weight: bold; fill: #D32F2F; text-anchor: middle;">END</text>
+  <text x="1550" y="1140" class="text-label">Process Complete</text>
+  
+  <!-- ========== DATA OBJECTS ========== -->
+  
+  <!-- Data Object: Temp Files -->
+  <rect x="470" y="245" width="70" height="80" class="data-object" filter="url(#shadow)"/>
+  <path d="M 470 245 L 530 245 L 530 260 L 515 275 L 470 275 Z" fill="#F5F5F5" stroke="#616161" stroke-width="1.5"/>
+  <text x="505" y="300" class="text-label" style="font-size: 10px;">Temp</text>
+  <text x="505" y="313" class="text-label" style="font-size: 10px;">Images</text>
+  
+  <!-- Data Object: YOLO Model -->
+  <rect x="870" y="560" width="70" height="80" class="data-object" filter="url(#shadow)"/>
+  <path d="M 870 560 L 930 560 L 930 575 L 915 590 L 870 590 Z" fill="#F5F5F5" stroke="#616161" stroke-width="1.5"/>
+  <text x="905" y="615" class="text-label" style="font-size: 10px;">YOLO</text>
+  <text x="905" y="628" class="text-label" style="font-size: 10px;">Model</text>
+  
+  <!-- Data Object: Volume Files -->
+  <rect x="1690" y="650" width="70" height="80" class="data-object" filter="url(#shadow)"/>
+  <path d="M 1690 650 L 1750 650 L 1750 665 L 1735 680 L 1690 680 Z" fill="#F5F5F5" stroke="#616161" stroke-width="1.5"/>
+  <text x="1725" y="695" class="text-label" style="font-size: 10px;">Volume</text>
+  <text x="1725" y="708" class="text-label" style="font-size: 10px;">Files</text>
+  <text x="1725" y="721" class="text-label" style="font-size: 10px;">(.npy)</text>
+  
+  <!-- ========== SEQUENCE FLOWS ========== -->
+  
+  <!-- Researcher Lane -->
+  <path d="M 260 190 L 320 190" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 460 190 L 500 190" class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- Backend Processing -->
+  <path d="M 410 375 L 450 375" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 590 375 L 630 375" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 770 375 L 810 375" class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- Parallel Fork -->
+  <path d="M 910 360 L 920 360 L 920 345 L 960 345" class="sequence-flow" marker-end="url(#arrow)"/>
+  <text x="910" y="340" class="text-label" style="font-size: 9px;">for viz</text>
+  <path d="M 910 390 L 920 390 L 920 475 L 960 475" class="sequence-flow" marker-end="url(#arrow)"/>
+  <text x="910" y="495" class="text-label" style="font-size: 9px;">originals</text>
+  
+  <!-- Masking Branch -->
+  <path d="M 1100 345 L 1140 345" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1250 345 L 1280 345 L 1280 405 " class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- YOLO Branch -->
+  <path d="M 1100 475 L 1140 475" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1250 475 L 1280 475 L 1280 435" class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- Model to YOLO -->
+  <path d="M 905 560 L 905 545 L 1020 545 L 1020 515" class="sequence-flow" marker-end="url(#arrow)" stroke-dasharray="4,2"/>
+  
+  <!-- After Join -->
+  <path d="M 1360 418 L1360 445 L 1410 445" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1550 450 L 1590 450" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1660 485 L 1660 550" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1590 585 L 1550 585" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1480 620 L 1480 695" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1730 585 L 1770 585" class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- Frontend -->
+  <path d="M 420 1085 L 460 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 600 1085 L 640 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 780 1085 L 820 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 960 1085 L 1000 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1100 1085 L 1160 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <text x="1130" y="1075" class="text-label" style="font-size: 9px;">export</text>
+  <path d="M 1050 1050  L 1050 1000 L 1410 1000 L 1410 1050" class="sequence-flow" marker-end="url(#arrow)"/>
+  <text x="1240" y="995" class="text-label" style="font-size: 9px;">view history</text>
+  <path d="M 1300 1085 L 1340 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  <path d="M 1480 1085 L 1520 1085" class="sequence-flow" marker-end="url(#arrow)"/>
+  
+  <!-- ========== MESSAGE FLOWS ========== -->
+  
+  <!-- User submits -->
+  <path d="M 550 220 L 550 280 L 340 280 L 340 340" class="message-flow" marker-end="url(#arrow-dashed)"/>
+  <text x="430" y="275" class="text-label" style="font-size: 10px;">HTTP POST</text>
+  
+  <!-- Backend to Frontend -->
+  <path d="M 1480 745 L 1480 890 L 350 890 L 350 1050" class="message-flow" marker-end="url(#arrow-dashed)"/>
+  <text x="925" y="880" class="text-label" style="font-size: 10px;">Streaming JSON Response</text>
+  
+  <!-- Frontend to User -->
+  <path d="M 890 1050 L 890 950 L 1930 950 L 1930 190 L 600 190 R 510 200" class="message-flow" marker-end="url(#arrow-dashed)"/>
+  <text x="1650" y="940" class="text-label" style="font-size: 10px;">3D Visualization Display</text>
+  
+  <!-- Volume Files to Frontend -->
+  <path d="M 1725 730 L 1725 920 L 530 920 L 530 1050" class="message-flow" marker-end="url(#arrow-dashed)"/>
+  <text x="1138" y="910" class="text-label" style="font-size: 10px;">HTTP GET /outputs/*.npy</text>
+  
+  <!-- ========== ANNOTATIONS ========== -->
+  
+  <g transform="translate(100, 1310)">
+    <text x="0" y="0" style="font-family: Arial; font-size: 14px; font-weight: bold; fill: #0077B5;">Process Flow Summary:</text>
+    <text x="0" y="22" style="font-family: Arial; font-size: 11px; fill: #333;">• User uploads ZIP → Backend extracts and preprocesses (resize 250x250)</text>
+    <text x="0" y="40" style="font-family: Arial; font-size: 11px; fill: #333;">• PARALLEL PROCESSING: Branch 1 (Masking for visualization) | Branch 2 (YOLO on originals for detection)</text>
+    <text x="0" y="58" style="font-family: Arial; font-size: 11px; fill: #333;">• Organize detections by tomogram → DBSCAN 3D clustering (eps=50) → Generate and save 3D volumes</text>
+    <text x="0" y="76" style="font-family: Arial; font-size: 11px; fill: #333;">• Stream results via JSON → Frontend loads .npy volumes → VTK.js renders interactive 3D visualization</text>
+  </g>
+  
+  <g transform="translate(1400, 1310)">
+    <text x="0" y="0" style="font-family: Arial; font-size: 14px; font-weight: bold; fill: #0077B5;">BPMN Elements:</text>
+    <circle cx="10" cy="15" r="8" class="event-start"/>
+    <text x="25" y="20" style="font-family: Arial; font-size: 10px; fill: #333;">Start Event</text>
+    
+    <rect x="2" y="30" width="40" height="20" class="task"/>
+    <text x="50" y="44" style="font-family: Arial; font-size: 10px; fill: #333;">Task/Activity</text>
+    
+    <path d="M 2 60 L 22 70 L 2 80 L -18 70 Z" class="gateway" transform="translate(20, 0)"/>
+    <text x="50" y="74" style="font-family: Arial; font-size: 10px; fill: #333;">Gateway (Decision)</text>
+    
+    <circle cx="10" cy="95" r="8" class="event-end"/>
+    <circle cx="10" cy="95" r="6" class="event-end"/>
+    <text x="25" y="100" style="font-family: Arial; font-size: 10px; fill: #333;">End Event</text>
+  </g>
+  
+</svg>

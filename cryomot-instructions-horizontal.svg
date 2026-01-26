@@ -1,0 +1,155 @@
+<svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .card { fill: #ffffff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+      .step-badge { fill: #2d7a6e; }
+      .step-text { fill: #333333; font-family: 'Arial', sans-serif; }
+      .title-text { fill: #2d7a6e; font-family: 'Arial', sans-serif; font-weight: bold; }
+      .connector { stroke: #2d7a6e; stroke-width: 2; fill: none; stroke-dasharray: 5,5; }
+      .highlight-box { fill: #e8f4f2; stroke: #2d7a6e; stroke-width: 2; }
+    </style>
+    
+    <!-- Gradient for badges -->
+    <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#2d7a6e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#1f5449;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1400" height="900" fill="#f8fafa"/>
+  
+  <!-- Header -->
+  <rect x="0" y="0" width="1400" height="100" fill="#2d7a6e"/>
+  <text x="70" y="50" class="title-text" font-size="38" fill="white">Cryomot</text>
+  <text x="70" y="80" style="fill: rgba(255,255,255,0.9); font-family: Arial; font-size: 24px; font-weight: 600;">CRYOMOT User Guide</text>
+  
+  <!-- Workflow sections -->
+  
+  <!-- Section 1: Prepare & Upload -->
+  <rect x="50" y="140" width="400" height="320" rx="15" class="card"/>
+  <rect x="50" y="140" width="400" height="50" rx="15" fill="#2d7a6e"/>
+  <text x="250" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">📁 PREPARE & UPLOAD</text>
+  
+  <!-- Step 1 -->
+  <circle cx="100" cy="240" r="30" fill="url(#badgeGrad)"/>
+  <text x="100" y="250" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">1</text>
+  <text x="150" y="235" class="step-text" font-size="16" font-weight="bold">Convert to ZIP</text>
+  <text x="150" y="255" class="step-text" font-size="13" fill="#666">Compress your tomogram folder</text>
+  
+  <!-- Step 2 -->
+  <circle cx="100" cy="320" r="30" fill="url(#badgeGrad)"/>
+  <text x="100" y="330" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">2</text>
+  <text x="150" y="315" class="step-text" font-size="16" font-weight="bold">Click "Choose ZIP File"</text>
+  <text x="150" y="335" class="step-text" font-size="13" fill="#666">Open file selection dialog</text>
+  
+  <!-- Step 3 -->
+  <circle cx="100" cy="400" r="30" fill="url(#badgeGrad)"/>
+  <text x="100" y="410" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">3</text>
+  <text x="150" y="395" class="step-text" font-size="16" font-weight="bold">Select Your File</text>
+  <text x="150" y="415" class="step-text" font-size="13" fill="#666">Navigate and choose your ZIP</text>
+  
+  <!-- Connector -->
+  <path d="M 450 300 L 530 300" class="connector"/>
+  <circle cx="530" cy="300" r="5" fill="#2d7a6e"/>
+  
+  <!-- Section 2: Process -->
+  <rect x="530" y="140" width="400" height="320" rx="15" class="card"/>
+  <rect x="530" y="140" width="400" height="50" rx="15" fill="#2d7a6e"/>
+  <text x="730" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">⚙️ PROCESS</text>
+  
+  <!-- Step 4 -->
+  <circle cx="580" cy="240" r="30" fill="url(#badgeGrad)"/>
+  <text x="580" y="250" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">4</text>
+  <text x="630" y="235" class="step-text" font-size="16" font-weight="bold">Run Detection Model</text>
+  <text x="630" y="255" class="step-text" font-size="13" fill="#666">Start the analysis pipeline</text>
+  
+  <!-- Step 5 - with pipeline details -->
+  <circle cx="580" cy="320" r="30" fill="url(#badgeGrad)"/>
+  <text x="580" y="330" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">5</text>
+  <text x="630" y="315" class="step-text" font-size="16" font-weight="bold">Wait for Processing</text>
+  <text x="630" y="335" class="step-text" font-size="13" fill="#666">Analysis pipeline running...</text>
+  
+  <rect x="550" y="360" width="360" height="85" rx="8" class="highlight-box"/>
+  <text x="730" y="380" text-anchor="middle" class="step-text" font-size="12" font-weight="bold" fill="#2d7a6e">Pipeline Stages:</text>
+  <text x="560" y="400" class="step-text" font-size="11" fill="#555">→ Data Loading</text>
+  <text x="695" y="400" class="step-text" font-size="11" fill="#555">→ Preprocessing</text>
+  <text x="560" y="418" class="step-text" font-size="11" fill="#555">→ Deep Learning Inference</text>
+  <text x="695" y="418" class="step-text" font-size="11" fill="#555">→ Post-processing</text>
+  <text x="560" y="436" class="step-text" font-size="11" fill="#555">→ Results Generation</text>
+  
+  <!-- Connector -->
+  <path d="M 930 300 L 1010 300" class="connector"/>
+  <circle cx="1010" cy="300" r="5" fill="#2d7a6e"/>
+  
+  <!-- Section 3: View & Save -->
+  <rect x="1010" y="140" width="340" height="320" rx="15" class="card"/>
+  <rect x="1010" y="140" width="340" height="50" rx="15" fill="#2d7a6e"/>
+  <text x="1180" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">📊 VIEW & SAVE</text>
+  
+  <!-- Step 6 -->
+  <circle cx="1060" cy="230" r="30" fill="url(#badgeGrad)"/>
+  <text x="1060" y="240" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">6</text>
+  <text x="1110" y="225" class="step-text" font-size="15" font-weight="bold">3D Visualization</text>
+  <text x="1110" y="242" class="step-text" font-size="12" fill="#666">Auto-redirected to view</text>
+  
+  <!-- Step 7 -->
+  <circle cx="1060" cy="305" r="30" fill="url(#badgeGrad)"/>
+  <text x="1060" y="315" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">7</text>
+  <text x="1110" y="300" class="step-text" font-size="15" font-weight="bold">Check Results</text>
+  <text x="1110" y="317" class="step-text" font-size="12" fill="#666">Return to Main tab</text>
+  
+  <rect x="1030" y="340" width="305" height="60" rx="6" fill="#f0f8f7" stroke="#2d7a6e" stroke-width="1"/>
+  <text x="1182" y="358" text-anchor="middle" class="step-text" font-size="11" fill="#2d7a6e" font-weight="bold">View Metrics:</text>
+  <text x="1040" y="375" class="step-text" font-size="10" fill="#555">• Motors Detected  • Euclidean Distance</text>
+  <text x="1040" y="390" class="step-text" font-size="10" fill="#555">• F Beta Score  • Processing Time</text>
+  
+  <!-- Step 8 -->
+  <circle cx="1060" cy="425" r="30" fill="url(#badgeGrad)"/>
+  <text x="1060" y="435" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">8</text>
+  <text x="1110" y="420" class="step-text" font-size="15" font-weight="bold">Save Results</text>
+  <text x="1110" y="437" class="step-text" font-size="12" fill="#666">Click "Save Result" button</text>
+  
+  <!-- Bottom info banner -->
+  <rect x="50" y="500" width="1300" height="130" rx="15" fill="white" stroke="#2d7a6e" stroke-width="3"/>
+  
+  <!-- Quick Tips -->
+  <text x="80" y="535" style="fill: #2d7a6e; font-size: 22px; font-weight: bold; font-family: Arial;">💡 Quick Tips</text>
+  
+  <g transform="translate(80, 555)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Ensure your ZIP contains tomogram images only</text>
+  </g>
+  
+  <g transform="translate(80, 580)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Processing time varies by data size and complexity</text>
+  </g>
+  
+  <g transform="translate(80, 605)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Monitor the pipeline stages for progress updates</text>
+  </g>
+  
+  <g transform="translate(750, 555)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Access saved results anytime from History tab</text>
+  </g>
+  
+  <g transform="translate(750, 580)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Navigate between tabs to explore different views</text>
+  </g>
+  
+  <g transform="translate(750, 605)">
+    <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+    <text x="15" y="5" class="step-text" font-size="14">Check all available metrics before saving</text>
+  </g>
+  
+  <!-- Footer -->
+  <rect x="0" y="680" width="1400" height="220" fill="#2d7a6e"/>
+  <text x="700" y="760" text-anchor="middle" style="fill: white; font-size: 32px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
+  <text x="700" y="800" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 20px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
+  <text x="700" y="830" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 20px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
+</svg>

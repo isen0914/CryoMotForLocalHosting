@@ -1,0 +1,2231 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>CRYOMOT - 3D Microscopy Analysis (Patched)</title>
+    <link rel="icon" type="image/png" sizes="32x32" href="logotab.png?v=1" />
+    <link rel="shortcut icon" type="image/png" href="logotab.png?v=1" />
+    <link rel="apple-touch-icon" href="logotab.png?v=1" />
+    
+    <!-- Load navigation FIRST - before anything else -->
+    <script src="nav.js"></script>
+    
+    <link rel="stylesheet" href="styles.css?v=7" />
+    <style>
+      /* quick embedded styles for vtk container to ensure it fills area cleanly */
+      #vtkContainer { position: relative; height: 80vh; width: 100%; background: #111; overflow: hidden; }
+      #vtkCanvas { position: absolute; inset: 0; }
+      #vtkControls { position: absolute; left: 10px; top: 10px; z-index: 20;
+                     background: rgba(255,255,255,0.95); padding: 10px; border-radius: 6px;
+                     width: 300px; font-size: 13px; }
+      #viewerOverlayMessage { position: absolute; right: 10px; top: 10px; z-index: 21;
+                              background: rgba(0,0,0,0.6); color: white; padding: 6px 8px; border-radius: 4px;}
+      /* ensure other sections have spacing */
+      .viewer-placeholder { height: 80vh; display:flex; align-items:center; justify-content:center; color:#999; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo"><img src="logo.png" alt="CRYOMOT"></div>
+      <button class="hamburger-menu" onclick="toggleMobileNav()">
+        <img src="hams.png" alt="Menu" />
+      </button>
+      <nav id="desktop-nav">
+        <button class="nav-btn active" onclick="switchTab('upload')">
+          Main
+        </button>
+        <button class="nav-btn" onclick="switchTab('visualization')">
+          3D Visualization
+        </button>
+        
+        <button class="nav-btn" onclick="switchTab('history')">History</button>
+        <button class="nav-btn" onclick="switchTab('instructions')">Instructions</button>
+        <button class="nav-btn" onclick="switchTab('about')">About</button>
+      </nav>
+    </header>
+
+    <!-- Mobile Sidebar Navigation -->
+    <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="closeMobileNav()"></div>
+    <nav class="mobile-nav" id="mobileNav">
+      <button class="nav-btn active" onclick="switchTab('upload'); closeMobileNav()">
+        Main
+      </button>
+      <button class="nav-btn" onclick="switchTab('visualization'); closeMobileNav()">
+        3D Visualization
+      </button>
+      
+      <button class="nav-btn" onclick="switchTab('history'); closeMobileNav()">History</button>
+      <button class="nav-btn" onclick="switchTab('instructions'); closeMobileNav()">Instructions</button>
+      <button class="nav-btn" onclick="switchTab('about'); closeMobileNav()">About</button>
+    </nav>
+
+    <div class="container">
+      <!-- Upload Data Section -->
+      <section id="upload" class="section active upload-section">
+        <h2>Upload 3D Microscopy Data</h2>
+        <div class="drop-zone" id="dropZone">
+          Drop a .zip containing tomogram images here
+          <br><br>
+          <button id="chooseZipBtn" style="
+            padding: 12px 24px;
+            background-color: #016B61;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.3s;
+          ">
+            Choose ZIP File
+          </button>
+        </div>
+        <input type="file" id="zipInput" accept=".zip" style="display:none" />
+        
+        <!-- Run Model Button -->
+        <button id="runModelBtn" style="
+          margin: 20px 0;
+          padding: 15px 30px;
+          background-color: #016B61;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          width: 100%;
+          max-width: 400px;
+          display: block;
+          margin-left: auto;
+          margin-right: auto;
+          transition: background-color 0.3s;
+        ">
+          🚀 Run Detection Model
+        </button>
+        
+        <div class="pipeline">
+          <h2>Analysis Pipeline</h2>
+          <div>
+            <div class="pipeline-step">
+              <div style="display: flex; align-items: center; flex: 1">
+                <div class="step-icon">
+                  <div class="circular-progress" data-progress="0">
+                    <svg width="60" height="60">
+                      <circle class="progress-bg" cx="30" cy="30" r="25"></circle>
+                      <circle class="progress-bar" cx="30" cy="30" r="25"></circle>
+                    </svg>
+                    <span class="progress-text">0%</span>
+                  </div>
+                </div>
+                <div class="step-content">
+                  <div class="step-name">Data Loading</div>
+                  <div class="step-status">loading</div>
+                </div>
+              </div>
+              <button class="step-toggle action-btn action-btn--icon" onclick="toggleStep(this)" style="display:none">▼</button>
+            </div>
+            <div class="step-content-expanded">
+              <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+                <button id="dataLoadingViewToggleBtn" class="action-btn action-btn--small" style="display:none">
+                  View All
+                </button>
+              </div>
+              <div class="thumbnails" id="dataLoadingThumbnails">
+                <div class="thumbnail"></div>
+                <div class="thumbnail"></div>
+                <div class="thumbnail"></div>
+                <div class="thumbnail"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="pipeline-step">
+            <div style="display: flex; align-items: center; flex: 1">
+              <div class="step-icon">
+                <div class="circular-progress" data-progress="0">
+                  <svg width="60" height="60">
+                    <circle class="progress-bg" cx="30" cy="30" r="25"></circle>
+                    <circle class="progress-bar" cx="30" cy="30" r="25"></circle>
+                  </svg>
+                  <span class="progress-text">0%</span>
+                </div>
+              </div>
+              <div class="step-content">
+                <div class="step-name">Preprocessing</div>
+                <div class="step-status">loading</div>
+              </div>
+            </div>
+            <button class="step-toggle action-btn action-btn--icon" onclick="toggleStep(this)" style="display:none">▼</button>
+          </div>
+          <div class="step-content-expanded">
+            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+              <button id="preprocessingViewToggleBtn" class="action-btn action-btn--small" style="display:none">
+                View All
+              </button>
+            </div>
+            <div class="thumbnails" id="preprocessingThumbnails">
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+            </div>
+          </div>
+
+          <div class="pipeline-step">
+            <div style="display: flex; align-items: center; flex: 1">
+              <div class="step-icon">
+                <div class="circular-progress" data-progress="0">
+                  <svg width="60" height="60">
+                    <circle class="progress-bg" cx="30" cy="30" r="25"></circle>
+                    <circle class="progress-bar" cx="30" cy="30" r="25"></circle>
+                  </svg>
+                  <span class="progress-text">0%</span>
+                </div>
+              </div>
+              <div class="step-content">
+                <div class="step-name">Deep Learning Inference</div>
+                <div class="step-status">loading</div>
+              </div>
+            </div>
+            <button class="step-toggle action-btn action-btn--icon" onclick="toggleStep(this)" style="display:none">▼</button>
+          </div>
+          <div class="step-content-expanded">
+            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+              <button id="inferenceViewToggleBtn" class="action-btn action-btn--small" style="display:none">
+                View All
+              </button>
+            </div>
+            <div class="thumbnails" id="inferenceThumbnails">
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+            </div>
+          </div>
+
+          <div class="pipeline-step">
+            <div style="display: flex; align-items: center; flex: 1">
+              <div class="step-icon">
+                <div class="circular-progress" data-progress="0">
+                  <svg width="60" height="60">
+                    <circle class="progress-bg" cx="30" cy="30" r="25"></circle>
+                    <circle class="progress-bar" cx="30" cy="30" r="25"></circle>
+                  </svg>
+                  <span class="progress-text">0%</span>
+                </div>
+              </div>
+              <div class="step-content">
+                <div class="step-name">Post-processing</div>
+                <div class="step-status">loading</div>
+              </div>
+            </div>
+            <button class="step-toggle action-btn action-btn--icon" onclick="toggleStep(this)" style="display:none">▼</button>
+          </div>
+          <div class="step-content-expanded">
+            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+              <button id="postprocessingViewToggleBtn" class="action-btn action-btn--small" style="display:none">
+                View All
+              </button>
+            </div>
+            <div class="thumbnails" id="postprocessingThumbnails">
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+            </div>
+          </div>
+
+          <div class="pipeline-step">
+            <div style="display: flex; align-items: center; flex: 1">
+              <div class="step-icon">
+                <div class="circular-progress" data-progress="0">
+                  <svg width="60" height="60">
+                    <circle class="progress-bg" cx="30" cy="30" r="25"></circle>
+                    <circle class="progress-bar" cx="30" cy="30" r="25"></circle>
+                  </svg>
+                  <span class="progress-text">0%</span>
+                </div>
+              </div>
+              <div class="step-content">
+                <div class="step-name">Results Generation</div>
+                <div class="step-status">loading</div>
+              </div>
+            </div>
+            <button class="step-toggle action-btn action-btn--icon" onclick="toggleStep(this)" style="display:none">▼</button>
+          </div>
+          <div class="step-content-expanded">
+            <div style="display: flex; justify-content: flex-end; margin-top: 5px;">
+              <button id="resultsViewToggleBtn" class="action-btn action-btn--small" style="display:none">
+                View All
+              </button>
+            </div>
+            <div class="thumbnails" id="resultThumbnails">
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+              <div class="thumbnail"></div>
+            </div>
+          </div>
+        </div>
+<br/>
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-label">Total Motors Detected</div>
+            <div id="totalMotorsValue" class="stat-value">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="stat-label">Total Processing Time</div>
+            <div id="avgProcTimeValue" class="stat-value">0s</div>
+          </div>
+        </div>
+        
+        <!-- Final 3D Coordinates Section -->
+        <div id="coordinatesWrap" style="
+          margin-top: 20px;
+          padding: 20px;
+          background-color: #C8D5B9;
+          border-left: 4px solid #016B61;
+          display: none;
+        ">
+          <strong style="font-size: 18px; color: #333; margin-bottom: 12px; display: block; font-weight: 600;">
+            Final 3D Coordinates & Representative Slices
+          </strong>
+          <div id="coordinatesDetails" style="
+            margin-top: 12px;
+            font-size: 16px;
+            color: #333;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            line-height: 1.6;
+          "></div>
+          <div style="display: flex; gap: 12px; margin-top: 12px; flex-wrap: wrap;">
+            <button id="downloadVolumeBtn" onclick="downloadTransparentVolume()" style="display:none; padding:10px 20px; background-color:#016B61; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:500;">⬇️ Download Motors Location Volume (.npy)</button>
+            <button id="downloadProcessedVolumeBtn" onclick="downloadProcessedVolume()" style="display:none; padding:10px 20px; background-color:#016B61; color:white; border:none; border-radius:4px; cursor:pointer; font-size:14px; font-weight:500;">⬇️ Download 3D Tomogram Volume (.npy)</button>
+          </div>
+        </div>
+        
+        <!-- Save Result button (bottom-right of Results tab) -->
+        <button
+          id="saveResultBtn"
+          style="
+            background-color: #016B61;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 600;
+            border-radius: 6px;
+            cursor: pointer;
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: background-color 0.3s;
+          "
+          onmouseover="this.style.backgroundColor='#015550'"
+          onmouseout="this.style.backgroundColor='#016B61'"
+          onclick="saveResult()"
+        >
+          💾 Save Result
+        </button>
+
+      </section>
+
+      
+
+      <!-- 3D Visualization Section -->
+<section id="visualization" class="section">
+        <h2>3D Reconstruction Viewer</h2>
+        
+        <!-- Auto-load notification banner -->
+        <div id="autoLoadNotification" style="display: none; background: #4caf50; color: white; padding: 12px; border-radius: 4px; margin-bottom: 16px; text-align: center; font-weight: bold;">
+          ✓ Volumes automatically loaded from previous detection
+        </div>
+
+        <div id="vtkContainer" class="viewer">
+          <div id="vtkCanvas"></div>
+
+          <!-- Right-side zoom control (kept separate from left controls) -->
+          <div id="vtkZoomControl" aria-label="Zoom control">
+            <div class="vtk-zoom-label" aria-hidden="true">Zoom in</div>
+            <button id="vtkZoomInBtn" class="vtk-zoom-btn" type="button" aria-label="Zoom in">+</button>
+
+            <!-- Keep the range input for existing zoom logic; visually hidden but still interactive via JS -->
+            <input id="vtkZoomSlider" class="vtk-zoom-slider" type="range" min="10" max="300" step="1" value="100" aria-label="Zoom" />
+
+            <div id="vtkZoomDots" class="vtk-zoom-dots" aria-hidden="true">
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+              <span class="vtk-zoom-dot"></span>
+            </div>
+
+            <button id="vtkZoomOutBtn" class="vtk-zoom-btn vtk-zoom-btn--minus" type="button" aria-label="Zoom out">−</button>
+            <div class="vtk-zoom-label" aria-hidden="true">Zoom out</div>
+          </div>
+
+          <!-- Controls -->
+          <div id="vtkControls">
+
+            <!-- CLOSE BUTTON -->
+            <button id="closeControls" style="position:absolute; top:6px; right:6px; border:none; background:transparent; font-weight:bold; font-size:14px; cursor:pointer; color:#333;">✖</button>
+
+            <div style="font-weight:700; margin-bottom:6px;">VTK.js Tomogram Viewer</div>
+
+            <!-- ★★★ GOOGLE DRIVE DROPDOWN HERE ★★★ -->
+            
+            <label style="font-size:12px; margin-top:10px;">Select GitHub Volume</label>
+            <select id="presetVolumeSelect" style="width:100%; margin-top:4px;">
+            <option value="none" selected>None</option>
+
+            <option value="volume_tomo_00e047_compressed.npy">volume_tomo_00e047_compressed.npy</option>
+            <option value="volume_tomo_01a877_compressed.npy">volume_tomo_01a877_compressed.npy</option>
+            <option value="volume_tomo_003acc_compressed.npy">volume_tomo_003acc_compressed.npy</option>
+            </select>
+
+            <button id="loadPresetVolume" style="margin-top:6px;">Load Selected Volume</button>
+
+
+            <!-- Local Upload -->
+            <label style="font-size:12px; margin-top:12px;">Volume (.npy)</label>
+            <input id="fileInput" type="file" accept=".npy" style="width:100%; margin-top:4px;" />
+
+            <!-- URL Input -->
+            <div style="margin-top:6px;">
+              <label style="font-size:12px;">or URL</label>
+              <input id="urlInput" type="text" placeholder="relative/path/to/volume.npy" style="width:100%; margin-top:4px;" />
+              <button id="loadUrl" style="margin-top:6px;">Load Volume</button>
+            </div>
+
+            <hr style="margin:8px 0;" />
+
+            <!-- Motors -->
+            <label style="font-size:12px;">Motor data (.npy - coordinates or volume)</label>
+            <input id="motorsFile" type="file" accept=".npy" style="width:100%; margin-top:4px;" />
+
+            <div style="margin-top:6px;">
+              <input id="motorsUrl" type="text" placeholder="relative/path/to/data.npy" style="width:100%; margin-top:4px;" />
+              <button id="loadMotorsUrl" style="margin-top:6px;">Load Data</button>
+            </div>
+
+            <!-- Sample Distance -->
+            <div style="margin-top:8px;">
+              <label>Sample distance</label><br />
+              <input id="sampleDist" type="range" min="0.1" max="5" step="0.1" value="1" style="width:100%;" />
+            </div>
+
+            <!-- Toggles -->
+            <div style="margin-top:8px;">
+              <input id="showVolume" type="checkbox" checked /><label for="showVolume"> Show Volume</label><br />
+              <input id="showMotors" type="checkbox" checked /><label for="showMotors"> Show Motors</label>
+            </div>
+
+            <div style="font-size:11px; margin-top:8px;">
+              Tip: serve via <code>python -m http.server 8000</code>
+            </div>
+
+          </div>
+
+          <div id="viewerOverlayMessage">No volume loaded</div>
+
+          <button id="showControlsBtn" style="position:absolute; bottom:10px; left:10px; z-index:30; padding:6px 12px; background:rgba(255,255,255,0.85); border:none; border-radius:4px; font-size:13px; cursor:pointer; display:none;">Show Controls</button>
+        </div>
+
+  <!-- Styles -->
+  <style>
+    #vtkContainer {
+      position: relative;
+      width: 100%;
+      height: 80vh;
+      background: #111;
+      overflow: hidden;
+    }
+
+    #vtkControls {
+      position: absolute;
+      top: 70px; /* below header/logo */
+      left: 20px;
+      z-index: 20;
+      width: 300px;
+      background: rgba(255,255,255,0.95);
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 13px;
+    }
+
+    @media (max-width:768px) {
+      #vtkControls {
+        /* Leave a right-side gutter so the zoom slider doesn't cover controls */
+        left: 10px;
+        right: 120px;
+        width: auto;
+        top: 60px;
+      }
+    }
+
+    #viewerOverlayMessage {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      z-index: 21;
+      background: rgba(0,0,0,0.6);
+      color: white;
+      padding: 6px 8px;
+      border-radius: 4px;
+    }
+
+    /* Right-side zoom control */
+    #vtkZoomControl {
+      position: absolute;
+      right: 10px;
+      top: 70px;
+      z-index: 22;
+      background: rgba(0,0,0,0.65);
+      padding: 10px 10px;
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      user-select: none;
+    }
+
+    .vtk-zoom-label {
+      color: rgba(255,255,255,0.9);
+      font-size: 12px;
+      font-weight: 600;
+      line-height: 1;
+    }
+
+    .vtk-zoom-btn {
+      width: 64px;
+      height: 64px;
+      border-radius: 999px;
+      border: 2px solid rgba(0,0,0,0.45);
+      background: #016B61;
+      color: #ffffff;
+      font-size: 34px;
+      font-weight: 800;
+      line-height: 1;
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .vtk-zoom-btn--minus {
+      font-size: 42px;
+      font-weight: 700;
+      padding-bottom: 6px;
+    }
+
+    .vtk-zoom-btn:active {
+      transform: translateY(1px);
+    }
+
+    /* Keep the existing slider element for logic, but hide it visually */
+    #vtkZoomSlider.vtk-zoom-slider {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+      width: 1px;
+      height: 1px;
+    }
+
+    .vtk-zoom-dots {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 4px 0;
+    }
+
+    .vtk-zoom-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.9);
+      box-shadow: 0 0 0 1px rgba(0,0,0,0.35) inset;
+    }
+
+    .vtk-zoom-dot.is-active {
+      background: #016B61;
+      box-shadow: 0 0 0 2px rgba(255,255,255,0.25);
+    }
+
+    @media (max-width:768px) {
+      #vtkZoomControl {
+        top: 60px;
+        right: 6px;
+        padding: 8px 8px;
+      }
+
+      .vtk-zoom-btn {
+        width: 48px;
+        height: 48px;
+        font-size: 28px;
+      }
+
+      .vtk-zoom-btn--minus {
+        font-size: 34px;
+      }
+
+      .vtk-zoom-dots {
+        gap: 8px;
+      }
+    }
+  </style>
+
+  <!-- Controls toggle script -->
+  <script>
+    const closeBtn = document.getElementById('closeControls');
+    const vtkCtrl = document.getElementById('vtkControls');
+    const showBtn = document.getElementById('showControlsBtn');
+
+    closeBtn.addEventListener('click', () => {
+      vtkCtrl.style.display = 'none';
+      showBtn.style.display = 'block';
+    });
+
+    showBtn.addEventListener('click', () => {
+      vtkCtrl.style.display = 'block';
+      showBtn.style.display = 'none';
+    });
+  </script>
+</section>
+
+
+
+      <!-- History Section -->
+      <section id="history" class="section">
+        <div class="history-list">
+          <h2 style="margin-bottom: 20px">History</h2>
+
+          <div>
+            <div class="history-item">
+              <div class="history-timestamp">10-09-2025 11:35:55</div>
+              <div class="history-count">0</div>
+              <div class="history-controls">
+                <button class="delete-btn" onclick="toggleHistory(this)">
+                  ▼
+                </button>
+              </div>
+            </div>
+            <div class="history-expanded">
+              <div class="stats-grid" style="margin-top: 0">
+                <div class="stat-box">
+                  <div class="stat-label">Total Motors Detected</div>
+                  <div class="stat-value">0</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total Processing Time</div>
+                  <div class="stat-value">5.8s</div>
+                </div>
+              </div>
+              <button class="delete-history-btn" onclick="deleteHistory(this)">
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div class="history-item">
+              <div class="history-timestamp">10-09-2025 14:15:03</div>
+              <div class="history-count">3</div>
+              <div class="history-controls">
+                <button class="delete-btn" onclick="toggleHistory(this)">
+                  ▼
+                </button>
+              </div>
+            </div>
+            <div class="history-expanded">
+              <div class="stats-grid" style="margin-top: 0">
+                <div class="stat-box">
+                  <div class="stat-label">Total Motors Detected</div>
+                  <div class="stat-value">3</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total Processing Time</div>
+                  <div class="stat-value">5.8s</div>
+                </div>
+              </div>
+              <button class="delete-history-btn" onclick="deleteHistory(this)">
+                Delete
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <div class="history-item">
+              <div class="history-timestamp">10-07-2025 16:50:05</div>
+              <div class="history-count">1</div>
+              <div class="history-controls">
+                <button class="delete-btn" onclick="toggleHistory(this)">
+                  ▲
+                </button>
+              </div>
+            </div>
+            <div class="history-expanded">
+              <div class="stats-grid" style="margin-top: 0">
+                <div class="stat-box">
+                  <div class="stat-label">Total Motors Detected</div>
+                  <div class="stat-value">1</div>
+                </div>
+                <div class="stat-box">
+                  <div class="stat-label">Total Processing Time</div>
+                  <div class="stat-value">56.8s</div>
+                </div>
+                <button
+                  class="delete-history-btn"
+                  onclick="deleteHistory(this)"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- About Section -->
+      <section id="about" class="section">
+        <!-- Desktop Version -->
+        <div class="about-desktop" style="width: 100%; max-width: 1400px; margin: 0 auto; overflow: auto;">
+          <svg viewBox="0 0 1400 950" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <!-- Define styles -->
+            <defs>
+              <style>
+                .about-card { fill: #ffffff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+                .about-badge { fill: #2d7a6e; }
+                .about-text { fill: #333333; font-family: 'Arial', sans-serif; }
+                .about-title { fill: #2d7a6e; font-family: 'Arial', sans-serif; font-weight: bold; }
+                .about-highlight { fill: #e8f4f2; stroke: #2d7a6e; stroke-width: 2; }
+              </style>
+              
+              <!-- Gradient -->
+              <linearGradient id="aboutGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#2d7a6e;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#1f5449;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            
+            <!-- Background -->
+            <rect width="1400" height="950" fill="#f8fafa"/>
+            
+            <!-- Header -->
+            <rect x="0" y="0" width="1400" height="120" fill="#2d7a6e"/>
+            <text x="700" y="55" text-anchor="middle" style="fill: white; font-family: Arial; font-size: 48px; font-weight: bold;">CRYOMOT</text>
+            <text x="700" y="90" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-family: Arial; font-size: 24px; font-weight: 600;">About Our System</text>
+            
+            <!-- System Info Card -->
+            <rect x="100" y="160" width="1200" height="200" rx="15" class="about-card"/>
+            <rect x="100" y="160" width="1200" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="700" y="192" text-anchor="middle" style="fill: white; font-size: 22px; font-weight: bold; font-family: Arial;">📊 SYSTEM INFORMATION</text>
+            
+            <!-- System name and version -->
+            <text x="150" y="250" class="about-text" font-size="18" font-weight="bold">System Name:</text>
+            <text x="320" y="250" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
+            
+            <text x="150" y="285" class="about-text" font-size="18" font-weight="bold">Version:</text>
+            <text x="320" y="285" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
+            
+            <text x="150" y="320" class="about-text" font-size="18" font-weight="bold">Description:</text>
+            <text x="320" y="320" class="about-text" font-size="15" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
+            
+            <!-- Tech Stack Section -->
+            <rect x="100" y="400" width="580" height="480" rx="15" class="about-card"/>
+            <rect x="100" y="400" width="580" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="390" y="432" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">🛠️ BACKEND TECHNOLOGIES</text>
+            
+            <!-- Backend tools with icons -->
+            <g transform="translate(130, 480)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🐍</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">Python</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Core programming language</text>
+            </g>
+            
+            <g transform="translate(130, 540)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">⚡</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">FastAPI</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Modern web framework</text>
+            </g>
+            
+            <g transform="translate(130, 600)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🦄</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">Uvicorn</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">ASGI server</text>
+            </g>
+            
+            <g transform="translate(130, 660)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🔥</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">PyTorch</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Deep learning framework</text>
+            </g>
+            
+            <g transform="translate(130, 720)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🎯</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">Ultralytics YOLO</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Object detection model</text>
+            </g>
+            
+            <g transform="translate(130, 780)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🖼️</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">Pillow & Scikit-Image</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Image processing libraries</text>
+            </g>
+            
+            <g transform="translate(130, 840)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">⚙️</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">ONNX Runtime</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Model optimization & inference</text>
+            </g>
+            
+            <!-- Frontend Stack Section -->
+            <rect x="720" y="400" width="580" height="480" rx="15" class="about-card"/>
+            <rect x="720" y="400" width="580" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="1010" y="432" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">💻 FRONTEND TECHNOLOGIES</text>
+            
+            <!-- Frontend tools -->
+            <g transform="translate(750, 480)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">📄</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">HTML5</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Markup structure</text>
+            </g>
+            
+            <g transform="translate(750, 540)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🎨</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">CSS3</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Styling & responsive design</text>
+            </g>
+            
+            <g transform="translate(750, 600)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">⚡</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">JavaScript</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Client-side interactivity</text>
+            </g>
+            
+            <g transform="translate(750, 660)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🧊</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">VTK.js</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">3D visualization toolkit</text>
+            </g>
+            
+            <g transform="translate(750, 720)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">📊</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">NumPy.js</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Numerical computing</text>
+            </g>
+            
+            <g transform="translate(750, 780)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">🎭</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">SVG Graphics</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Vector graphics & diagrams</text>
+            </g>
+            
+            <g transform="translate(750, 840)">
+              <circle cx="20" cy="0" r="15" fill="url(#aboutGrad)"/>
+              <text x="20" y="5" text-anchor="middle" style="fill: white; font-size: 16px; font-weight: bold;">📱</text>
+              <text x="50" y="5" class="about-text" font-size="16" font-weight="bold">Responsive Design</text>
+              <text x="50" y="25" class="about-text" font-size="13" fill="#666">Mobile-friendly interface</text>
+            </g>
+            
+            <!-- Footer -->
+            <rect x="0" y="900" width="1400" height="50" fill="#2d7a6e"/>
+            <text x="700" y="932" text-anchor="middle" style="fill: white; font-size: 16px; font-family: Arial;">© 2026 CRYOMOT - A Deep Learning-Based Detection Of Bacterial Flagellar Motor in 3D Microscopy Reconstructions</text>
+          </svg>
+        </div>
+        
+        <!-- Mobile Version -->
+        <div class="about-mobile" style="width: 100%; max-width: 800px; margin: 0 auto; overflow: auto;">
+          <svg viewBox="0 0 800 1430" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <!-- Define styles -->
+            <defs>
+              <style>
+                .about-card-mobile { fill: #ffffff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+                .about-text-mobile { fill: #333333; font-family: 'Arial', sans-serif; }
+              </style>
+              
+              <!-- Gradient -->
+              <linearGradient id="aboutGradMobile" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#2d7a6e;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#1f5449;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            
+            <!-- Background -->
+            <rect width="800" height="1430" fill="#f8fafa"/>
+            
+            <!-- Header -->
+            <rect x="0" y="0" width="800" height="100" fill="#2d7a6e"/>
+            <text x="400" y="50" text-anchor="middle" style="fill: white; font-family: Arial; font-size: 36px; font-weight: bold;">CRYOMOT</text>
+            <text x="400" y="80" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-family: Arial; font-size: 18px; font-weight: 600;">About Our System</text>
+            
+            <!-- System Info Card -->
+            <rect x="50" y="130" width="700" height="165" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="130" width="700" height="45" rx="12" fill="#2d7a6e"/>
+            <text x="400" y="160" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">📊 SYSTEM INFORMATION</text>
+            
+            <text x="80" y="210" class="about-text-mobile" font-size="16" font-weight="bold">System Name:</text>
+            <text x="240" y="210" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
+            
+            <text x="80" y="240" class="about-text-mobile" font-size="16" font-weight="bold">Version:</text>
+            <text x="240" y="240" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
+            
+            <text x="80" y="270" class="about-text-mobile" font-size="15" font-weight="bold">Description:</text>
+            <text x="240" y="270" class="about-text-mobile" font-size="12" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
+            
+            <!-- Backend Section -->
+            <rect x="50" y="320" width="700" height="465" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="320" width="700" height="45" rx="12" fill="#2d7a6e"/>
+            <text x="400" y="350" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">🛠️ BACKEND TECHNOLOGIES</text>
+            
+            <!-- Backend tools -->
+            <g transform="translate(80, 385)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🐍</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Python</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Core programming language</text>
+            </g>
+            
+            <g transform="translate(80, 445)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚡</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">FastAPI</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Modern web framework</text>
+            </g>
+            
+            <g transform="translate(80, 505)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🦄</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Uvicorn</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">ASGI server</text>
+            </g>
+            
+            <g transform="translate(80, 565)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🔥</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">PyTorch</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Deep learning framework</text>
+            </g>
+            
+            <g transform="translate(80, 625)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎯</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Ultralytics YOLO</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Object detection model</text>
+            </g>
+            
+            <g transform="translate(80, 685)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🖼️</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Pillow & Scikit-Image</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Image processing libraries</text>
+            </g>
+            
+            <g transform="translate(80, 745)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚙️</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">ONNX Runtime</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Model optimization & inference</text>
+            </g>
+            
+            <!-- Frontend Section -->
+            <rect x="50" y="810" width="700" height="465" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="810" width="700" height="45" rx="12" fill="#2d7a6e"/>
+            <text x="400" y="840" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">💻 FRONTEND TECHNOLOGIES</text>
+            
+            <!-- Frontend tools -->
+            <g transform="translate(80, 875)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📄</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">HTML5</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Markup structure</text>
+            </g>
+            
+            <g transform="translate(80, 935)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎨</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">CSS3</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Styling & responsive design</text>
+            </g>
+            
+            <g transform="translate(80, 995)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚡</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">JavaScript</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Client-side interactivity</text>
+            </g>
+            
+            <g transform="translate(80, 1055)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🧊</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">VTK.js</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">3D visualization toolkit</text>
+            </g>
+            
+            <g transform="translate(80, 1115)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📊</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">NumPy.js</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Numerical computing</text>
+            </g>
+            
+            <g transform="translate(80, 1175)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎭</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">SVG Graphics</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Vector graphics & diagrams</text>
+            </g>
+            
+            <g transform="translate(80, 1235)">
+              <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
+              <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📱</text>
+              <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Responsive Design</text>
+              <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Mobile-friendly interface</text>
+            </g>
+            
+            <!-- Footer -->
+            <rect x="0" y="1305" width="800" height="125" fill="#2d7a6e"/>
+            <text x="400" y="1350" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
+            <text x="400" y="1380" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
+            <text x="400" y="1400" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
+            <text x="400" y="1420" text-anchor="middle" style="fill: rgba(255,255,255,0.8); font-size: 12px; font-family: Arial;">© 2026 CRYOMOT</text>
+          </svg>
+        </div>
+      </section>
+      <!-- Instructions Section -->
+      <section id="instructions" class="section">
+        <!-- Desktop Version (Horizontal) -->
+        <div class="instructions-desktop" style="width: 100%; max-width: 1400px; margin: 0 auto; overflow: auto;">
+          <svg viewBox="0 0 1400 900" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <!-- Define styles -->
+            <defs>
+              <style>
+                .card { fill: #ffffff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+                .step-badge { fill: #2d7a6e; }
+                .step-text { fill: #333333; font-family: 'Arial', sans-serif; }
+                .title-text { fill: #2d7a6e; font-family: 'Arial', sans-serif; font-weight: bold; }
+                .connector { stroke: #2d7a6e; stroke-width: 2; fill: none; stroke-dasharray: 5,5; }
+                .highlight-box { fill: #e8f4f2; stroke: #2d7a6e; stroke-width: 2; }
+              </style>
+              
+              <!-- Gradient for badges -->
+              <linearGradient id="badgeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#2d7a6e;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#1f5449;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            
+            <!-- Background -->
+            <rect width="1400" height="900" fill="#f8fafa"/>
+            
+            <!-- Header -->
+            <rect x="0" y="0" width="1400" height="100" fill="#2d7a6e"/>
+            <text x="70" y="50" class="title-text" font-size="38" fill="white">Cryomot</text>
+            <text x="70" y="80" style="fill: rgba(255,255,255,0.9); font-family: Arial; font-size: 24px; font-weight: 600;">CRYOMOT User Guide</text>
+            
+            <!-- Workflow sections -->
+            
+            <!-- Section 1: Prepare & Upload -->
+            <rect x="50" y="140" width="400" height="320" rx="15" class="card"/>
+            <rect x="50" y="140" width="400" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="250" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">📁 PREPARE & UPLOAD</text>
+            
+            <!-- Step 1 -->
+            <circle cx="100" cy="240" r="30" fill="url(#badgeGrad)"/>
+            <text x="100" y="250" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">1.</text>
+            <text x="150" y="235" class="step-text" font-size="16" font-weight="bold">Convert to ZIP</text>
+            <text x="150" y="255" class="step-text" font-size="13" fill="#666">Compress your tomogram folder</text>
+            
+            <!-- Step 2 -->
+            <circle cx="100" cy="320" r="30" fill="url(#badgeGrad)"/>
+            <text x="100" y="330" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">2.</text>
+            <text x="150" y="315" class="step-text" font-size="16" font-weight="bold">Click "Choose ZIP File"</text>
+            <text x="150" y="335" class="step-text" font-size="13" fill="#666">Open file selection dialog</text>
+            
+            <!-- Step 3 -->
+            <circle cx="100" cy="400" r="30" fill="url(#badgeGrad)"/>
+            <text x="100" y="410" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">3.</text>
+            <text x="150" y="395" class="step-text" font-size="16" font-weight="bold">Select Your File</text>
+            <text x="150" y="415" class="step-text" font-size="13" fill="#666">Navigate and choose your ZIP</text>
+            
+            <!-- Connector -->
+            <path d="M 450 300 L 530 300" class="connector"/>
+            <circle cx="530" cy="300" r="5" fill="#2d7a6e"/>
+            
+            <!-- Section 2: Process -->
+            <rect x="530" y="140" width="400" height="320" rx="15" class="card"/>
+            <rect x="530" y="140" width="400" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="730" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">⚙️ PROCESS</text>
+            
+            <!-- Step 4 -->
+            <circle cx="580" cy="240" r="30" fill="url(#badgeGrad)"/>
+            <text x="580" y="250" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">4.</text>
+            <text x="630" y="235" class="step-text" font-size="16" font-weight="bold">Run Detection Model</text>
+            <text x="630" y="255" class="step-text" font-size="13" fill="#666">Start the analysis pipeline</text>
+            
+            <!-- Step 5 - with pipeline details -->
+            <circle cx="580" cy="320" r="30" fill="url(#badgeGrad)"/>
+            <text x="580" y="330" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">5.</text>
+            <text x="630" y="315" class="step-text" font-size="16" font-weight="bold">Wait for Processing</text>
+            <text x="630" y="335" class="step-text" font-size="13" fill="#666">Analysis pipeline running...</text>
+            
+            <rect x="550" y="360" width="360" height="100" rx="8" class="highlight-box"/>
+            <text x="730" y="385" text-anchor="middle" class="step-text" font-size="13" font-weight="bold" fill="#2d7a6e">Analysis Pipeline Stages:</text>
+            
+            <!-- Left column -->
+            <g transform="translate(570, 405)" style="cursor: pointer;">
+              <title>Data Loading - Unpacks your ZIP file and extracts all tomogram image slices. Validates file formats, checks data integrity, and prepares the dataset for processing.</title>
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="12" y="4" class="step-text" font-size="11" fill="#555">Data Loading</text>
+            </g>
+            
+            <g transform="translate(570, 423)" style="cursor: pointer;">
+              <title>Preprocessing - Normalizes image intensities, applies filtering techniques, and enhances contrast. Prepares each slice to optimal conditions for accurate model detection.</title>
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="12" y="4" class="step-text" font-size="11" fill="#555">Preprocessing</text>
+            </g>
+            
+            <g transform="translate(570, 441)" style="cursor: pointer;">
+              <title>Deep Learning Inference - Runs the trained YOLO neural network on each preprocessed slice. Detects and localizes bacterial flagellar motors with bounding box predictions and confidence scores.</title>
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="12" y="4" class="step-text" font-size="11" fill="#555">Deep Learning Inference</text>
+            </g>
+            
+            <!-- Right column -->
+            <g transform="translate(740, 405)" style="cursor: pointer;">
+              <title>Post-processing - Filters detections based on confidence thresholds, removes duplicates through Non-Maximum Suppression (NMS), and refines bounding box coordinates for accuracy.</title>
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="12" y="4" class="step-text" font-size="11" fill="#555">Post-processing</text>
+            </g>
+            
+            <g transform="translate(740, 423)" style="cursor: pointer;">
+              <title>Results Generation - Compiles detection data across all slices, generates 3D volume visualization, and prepares the final analysis report.</title>
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="12" y="4" class="step-text" font-size="11" fill="#555">Results Generation</text>
+            </g>
+            
+            <!-- Connector -->
+            <path d="M 930 300 L 1010 300" class="connector"/>
+            <circle cx="1010" cy="300" r="5" fill="#2d7a6e"/>
+            
+            <!-- Section 3: View & Save -->
+            <rect x="1010" y="140" width="340" height="340" rx="15" class="card"/>
+            <rect x="1010" y="140" width="340" height="50" rx="15" fill="#2d7a6e"/>
+            <text x="1180" y="172" text-anchor="middle" style="fill: white; font-size: 20px; font-weight: bold; font-family: Arial;">📊 VIEW & SAVE</text>
+            
+            <!-- Step 6 -->
+            <circle cx="1060" cy="225" r="30" fill="url(#badgeGrad)"/>
+            <text x="1060" y="235" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">6.</text>
+            <text x="1110" y="220" class="step-text" font-size="15" font-weight="bold">3D Visualization</text>
+            <text x="1110" y="237" class="step-text" font-size="12" fill="#666">Auto-redirected to view</text>
+            
+            <!-- Step 7 -->
+            <circle cx="1060" cy="290" r="30" fill="url(#badgeGrad)"/>
+            <text x="1060" y="300" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">7.</text>
+            <text x="1110" y="285" class="step-text" font-size="15" font-weight="bold">Check Results</text>
+            <text x="1110" y="302" class="step-text" font-size="12" fill="#666">Return to Main tab</text>
+            
+            <rect x="1030" y="325" width="305" height="75" rx="6" fill="#f0f8f7" stroke="#2d7a6e" stroke-width="1"/>
+            <text x="1182" y="345" text-anchor="middle" class="step-text" font-size="13" fill="#2d7a6e" font-weight="bold">Available Metrics:</text>
+            
+            <!-- Left column -->
+            <text x="1045" y="365" class="step-text" font-size="12" fill="#555">• Total Motors Detected</text>
+            
+            <!-- Right column -->
+            <text x="1190" y="365" class="step-text" font-size="12" fill="#555">• Total Processing Time</text>
+            
+            <!-- Step 8 -->
+            <circle cx="1060" cy="435" r="30" fill="url(#badgeGrad)"/>
+            <text x="1060" y="445" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">8.</text>
+            <text x="1110" y="430" class="step-text" font-size="15" font-weight="bold">Save Results</text>
+            <text x="1110" y="447" class="step-text" font-size="12" fill="#666">Click "Save Result" button</text>
+            
+            <!-- Bottom info banner -->
+            <rect x="50" y="500" width="1300" height="130" rx="15" fill="white" stroke="#2d7a6e" stroke-width="3"/>
+            
+            <!-- Quick Tips -->
+            <text x="80" y="535" style="fill: #2d7a6e; font-size: 22px; font-weight: bold; font-family: Arial;">💡 Quick Tips</text>
+            
+            <g transform="translate(80, 555)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Ensure your ZIP contains tomogram images only</text>
+            </g>
+            
+            <g transform="translate(80, 580)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Processing time varies by data size and complexity</text>
+            </g>
+            
+            <g transform="translate(80, 605)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Monitor the pipeline stages for progress updates</text>
+            </g>
+            
+            <g transform="translate(750, 555)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Access saved results anytime from History tab</text>
+            </g>
+            
+            <g transform="translate(750, 580)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Navigate between tabs to explore different views</text>
+            </g>
+            
+            <g transform="translate(750, 605)">
+              <circle cx="0" cy="0" r="4" fill="#2d7a6e"/>
+              <text x="15" y="5" class="step-text" font-size="14">Check all available metrics before saving</text>
+            </g>
+            
+            <!-- Footer -->
+            <rect x="0" y="680" width="1400" height="220" fill="#2d7a6e"/>
+            <text x="700" y="760" text-anchor="middle" style="fill: white; font-size: 32px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
+            <text x="700" y="800" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 20px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
+            <text x="700" y="830" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 20px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
+          </svg>
+        </div>
+        
+        <!-- Mobile Version (Vertical) -->
+        <div class="instructions-mobile" style="width: 100%; max-width: 800px; margin: 0 auto; overflow: auto;">
+          <svg viewBox="0 0 800 2650" xmlns="http://www.w3.org/2000/svg" style="width: 100%; height: auto;">
+            <!-- Define styles -->
+            <defs>
+              <style>
+                .card { fill: #ffffff; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.1)); }
+                .step-badge { fill: #2d7a6e; }
+                .step-text { fill: #333333; font-family: 'Arial', sans-serif; }
+                .title-text { fill: #2d7a6e; font-family: 'Arial', sans-serif; font-weight: bold; }
+                .connector-line { stroke: #2d7a6e; stroke-width: 3; fill: none; }
+                .connector-dot { fill: #2d7a6e; }
+                .highlight-box { fill: #e8f4f2; stroke: #2d7a6e; stroke-width: 2; }
+                .section-header { fill: #2d7a6e; }
+              </style>
+              
+              <!-- Gradient for badges -->
+              <linearGradient id="badgeGradMobile" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#2d7a6e;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#1f5449;stop-opacity:1" />
+              </linearGradient>
+              
+              <!-- Arrow marker -->
+              <marker id="arrowheadMobile" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                <polygon points="0 0, 10 3, 0 6" fill="#2d7a6e" />
+              </marker>
+            </defs>
+            
+            <!-- Background -->
+            <rect width="800" height="2650" fill="#f8fafa"/>
+            
+            <!-- Header -->
+            <rect x="0" y="0" width="800" height="140" fill="#2d7a6e"/>
+            <text x="400" y="70" text-anchor="middle" class="title-text" font-size="48" fill="white">Cryomot</text>
+            <text x="400" y="105" text-anchor="middle" style="fill: rgba(255,255,255,0.9); font-family: Arial; font-size: 30px; font-weight: 600;">CRYOMOT User Guide</text>
+            
+            <!-- Main content starts -->
+            <g transform="translate(0, 160)">
+              
+              <!-- SECTION 1: PREPARE & UPLOAD -->
+              <rect x="60" y="20" width="680" height="60" rx="10" class="section-header"/>
+              <text x="400" y="60" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">📁 PREPARE & UPLOAD</text>
+              
+              <!-- Step 1 -->
+              <rect x="60" y="100" width="680" height="140" rx="15" class="card"/>
+              <circle cx="130" cy="170" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="182" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">1.</text>
+              
+              <text x="190" y="155" class="step-text" font-size="22" font-weight="bold">Convert to ZIP</text>
+              <text x="190" y="185" class="step-text" font-size="16" fill="#666">Convert your tomogram folder into a</text>
+              <text x="190" y="210" class="step-text" font-size="16" fill="#666">ZIP file if not already compressed</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="240" x2="400" y2="280" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- Step 2 -->
+              <rect x="60" y="280" width="680" height="140" rx="15" class="card"/>
+              <circle cx="130" cy="350" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="362" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">2.</text>
+              
+              <text x="190" y="335" class="step-text" font-size="22" font-weight="bold">Click "Choose ZIP File"</text>
+              <text x="190" y="365" class="step-text" font-size="16" fill="#666">Click the button to open the file</text>
+              <text x="190" y="390" class="step-text" font-size="16" fill="#666">selection dialog</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="420" x2="400" y2="460" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- Step 3 -->
+              <rect x="60" y="460" width="680" height="140" rx="15" class="card"/>
+              <circle cx="130" cy="530" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="542" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">3.</text>
+              
+              <text x="190" y="515" class="step-text" font-size="22" font-weight="bold">Select Your ZIP File</text>
+              <text x="190" y="545" class="step-text" font-size="16" fill="#666">Locate and select your ZIP file from</text>
+              <text x="190" y="570" class="step-text" font-size="16" fill="#666">your computer</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="600" x2="400" y2="660" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- SECTION 2: PROCESS -->
+              <rect x="60" y="660" width="680" height="60" rx="10" class="section-header"/>
+              <text x="400" y="700" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">⚙️ PROCESS</text>
+              
+              <!-- Step 4 -->
+              <rect x="60" y="740" width="680" height="140" rx="15" class="card"/>
+              <circle cx="130" cy="810" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="822" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">4.</text>
+              
+              <text x="190" y="795" class="step-text" font-size="22" font-weight="bold">Run Detection Model</text>
+              <text x="190" y="825" class="step-text" font-size="16" fill="#666">Click "Run Detection Model" button</text>
+              <text x="190" y="850" class="step-text" font-size="16" fill="#666">to start the analysis pipeline</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="880" x2="400" y2="920" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- Step 5 -->
+              <rect x="60" y="920" width="680" height="340" rx="15" class="card"/>
+              <circle cx="130" cy="1000" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="1012" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">5.</text>
+              
+              <text x="190" y="985" class="step-text" font-size="22" font-weight="bold">Wait for Processing</text>
+              <text x="190" y="1015" class="step-text" font-size="16" fill="#666">The analysis pipeline will run through</text>
+              <text x="190" y="1040" class="step-text" font-size="16" fill="#666">several stages automatically</text>
+              
+              <!-- Pipeline stages box -->
+              <rect x="100" y="1070" width="600" height="170" rx="10" class="highlight-box"/>
+              <text x="400" y="1100" text-anchor="middle" class="step-text" font-size="18" font-weight="bold" fill="#2d7a6e">Analysis Pipeline Stages:</text>
+              
+              <g transform="translate(130, 1120)" style="cursor: pointer;">
+                <title>Data Loading - Unpacks your ZIP file and extracts all tomogram image slices. Validates file formats, checks data integrity, and prepares the dataset for processing.</title>
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15" fill="#555">Data Loading</text>
+              </g>
+              
+              <g transform="translate(130, 1150)" style="cursor: pointer;">
+                <title>Preprocessing - Normalizes image intensities, applies filtering techniques, and enhances contrast. Prepares each slice to optimal conditions for accurate model detection.</title>
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15" fill="#555">Preprocessing</text>
+              </g>
+              
+              <g transform="translate(130, 1180)" style="cursor: pointer;">
+                <title>Deep Learning Inference - Runs the trained YOLO neural network on each preprocessed slice. Detects and localizes bacterial flagellar motors with bounding box predictions and confidence scores.</title>
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15" fill="#555">Deep Learning Inference</text>
+              </g>
+              
+              <g transform="translate(420, 1120)" style="cursor: pointer;">
+                <title>Post-processing - Filters detections based on confidence thresholds, removes duplicates through Non-Maximum Suppression (NMS), and refines bounding box coordinates for accuracy.</title>
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15" fill="#555">Post-processing</text>
+              </g>
+              
+              <g transform="translate(420, 1150)" style="cursor: pointer;">
+                <title>Results Generation - Compiles detection data across all slices, generates 3D volume visualization, and prepares the final analysis report.</title>
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15" fill="#555">Results Generation</text>
+              </g>
+              
+              <!-- Connector -->
+              <line x1="400" y1="1260" x2="400" y2="1320" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- SECTION 3: VIEW & SAVE -->
+              <rect x="60" y="1320" width="680" height="60" rx="10" class="section-header"/>
+              <text x="400" y="1360" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">📊 VIEW & SAVE</text>
+              
+              <!-- Step 6 -->
+              <rect x="60" y="1400" width="680" height="140" rx="15" class="card"/>
+              <circle cx="130" cy="1470" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="1482" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">6.</text>
+              
+              <text x="190" y="1455" class="step-text" font-size="22" font-weight="bold">View 3D Visualization</text>
+              <text x="190" y="1485" class="step-text" font-size="16" fill="#666">You'll be automatically redirected to</text>
+              <text x="190" y="1510" class="step-text" font-size="16" fill="#666">the 3D Visualization tab</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="1540" x2="400" y2="1580" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- Step 7 -->
+              <rect x="60" y="1580" width="680" height="260" rx="15" class="card"/>
+              <circle cx="130" cy="1660" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="1672" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">7.</text>
+              
+              <text x="190" y="1645" class="step-text" font-size="22" font-weight="bold">Check Results</text>
+              <text x="190" y="1675" class="step-text" font-size="16" fill="#666">Go back to Main tab to view all</text>
+              <text x="190" y="1700" class="step-text" font-size="16" fill="#666">analysis results and metrics</text>
+              
+              <!-- Results metrics box -->
+              <rect x="100" y="1720" width="600" height="100" rx="8" fill="#f0f8f7" stroke="#2d7a6e" stroke-width="2"/>
+              <text x="400" y="1745" text-anchor="middle" class="step-text" font-size="18" fill="#2d7a6e" font-weight="bold">Available Metrics:</text>
+              <text x="120" y="1770" class="step-text" font-size="16" fill="#555">• Total Motors Detected</text>
+              <text x="400" y="1770" class="step-text" font-size="16" fill="#555">• Total Processing Time</text>
+              
+              <!-- Connector -->
+              <line x1="400" y1="1840" x2="400" y2="1880" class="connector-line" marker-end="url(#arrowheadMobile)"/>
+              
+              <!-- Step 8 -->
+              <rect x="60" y="1880" width="680" height="160" rx="15" class="card"/>
+              <circle cx="130" cy="1960" r="35" fill="url(#badgeGradMobile)"/>
+              <text x="130" y="1972" text-anchor="middle" style="fill: white; font-size: 28px; font-weight: bold; font-family: Arial;">8.</text>
+              
+              <text x="190" y="1945" class="step-text" font-size="22" font-weight="bold">Save Results</text>
+              <text x="190" y="1975" class="step-text" font-size="16" fill="#666">Click "Save Result" button (bottom right)</text>
+              <text x="190" y="2000" class="step-text" font-size="16" fill="#666">Results will appear in the History tab</text>
+              
+              <!-- Tips section -->
+              <rect x="60" y="2080" width="680" height="320" rx="15" fill="white" stroke="#2d7a6e" stroke-width="3"/>
+              <text x="400" y="2120" text-anchor="middle" style="fill: #2d7a6e; font-size: 24px; font-weight: bold; font-family: Arial;">💡 Quick Tips</text>
+              
+              <g transform="translate(100, 2160)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Ensure your ZIP contains tomogram images only</text>
+              </g>
+              
+              <g transform="translate(100, 2200)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Processing time varies by data size</text>
+              </g>
+              
+              <g transform="translate(100, 2240)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Access saved results anytime from History tab</text>
+              </g>
+              
+              <g transform="translate(100, 2280)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Navigate between tabs to explore different views</text>
+              </g>
+              
+              <g transform="translate(100, 2320)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Monitor the pipeline stages for progress updates</text>
+              </g>
+              
+              <g transform="translate(100, 2360)">
+                <circle cx="0" cy="0" r="5" fill="#2d7a6e"/>
+                <text x="20" y="5" class="step-text" font-size="15">Check all available metrics before saving</text>
+              </g>
+              
+            </g>
+            
+            <!-- Footer -->
+            <rect x="0" y="2540" width="800" height="110" fill="#2d7a6e"/>
+            <text x="400" y="2580" text-anchor="middle" style="fill: white; font-size: 22px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
+            <text x="400" y="2608" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 15px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
+            <text x="400" y="2632" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 15px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
+          </svg>
+        </div>
+      </section>
+    
+    <!-- JSZip for reading ZIP uploads client-side -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+    <!-- VTK.js -->
+    <script src="https://unpkg.com/vtk.js"></script>
+
+    <!-- API Configuration - loaded FIRST -->
+    <script src="config.js"></script>
+
+    <!-- NEW: Simple upload handler - loaded AFTER config -->
+    <script src="upload.js?v=9"></script>
+
+    <!-- Load our main script AFTER all dependencies -->
+    <script src="script.js?v=9"></script>
+
+    <script>
+    // --- NPY parser (supports common dtypes and shapes) ---
+    function parseNpy(buffer) {
+      const dv = new DataView(buffer);
+      const magic = String.fromCharCode.apply(null, new Uint8Array(buffer, 0, 6));
+      if (magic !== "\\x93NUMPY") throw new Error("Not a .npy file");
+      let offset = 6;
+      const major = dv.getUint8(offset); offset += 1;
+      const minor = dv.getUint8(offset); offset += 1;
+      let headerLen = 0;
+      if (major === 1) {
+        headerLen = dv.getUint16(offset, true); offset += 2;
+      } else {
+        headerLen = dv.getUint32(offset, true); offset += 4;
+      }
+      const headerBytes = new Uint8Array(buffer, offset, headerLen);
+      const header = new TextDecoder("utf-8").decode(headerBytes);
+      offset += headerLen;
+
+      const descrMatch = header.match(/'descr':\\s*'([^']+)'/);
+      const shapeMatch = header.match(/'shape':\\s*\\(([^\\)]*)\\)/);
+      if (!descrMatch || !shapeMatch) throw new Error("Unsupported .npy header");
+      const descr = descrMatch[1];
+      const shape = shapeMatch[1].split(",").map(s=>s.trim()).filter(s=>s.length).map(s=>parseInt(s,10));
+      const count = shape.reduce((a,b)=>a*b,1);
+
+      const typeCode = descr.slice(-2);
+      let typedArray = null;
+      if (typeCode === "f4") typedArray = new Float32Array(buffer, offset, count);
+      else if (typeCode === "f8") typedArray = new Float64Array(buffer, offset, count);
+      else if (typeCode === "u1" || typeCode==="i1") typedArray = new Uint8Array(buffer, offset, count);
+      else if (typeCode === "u2" || typeCode==="i2") typedArray = new Uint16Array(buffer, offset, count);
+      else if (typeCode === "u4" || typeCode==="i4") typedArray = new Uint32Array(buffer, offset, count);
+      else throw new Error("Unsupported dtype: " + descr);
+
+      return {shape, data: typedArray, descr};
+    }
+
+    // Create vtkImageData from parsed npy (supports (Z,Y,X) or (Z,Y,X,4) for RGBA)
+    function vtkImageFromNpy(parsed) {
+      const shp = parsed.shape.slice();
+      let z,y,x,components=1;
+      if (shp.length === 4) { z = shp[0]; y = shp[1]; x = shp[2]; components = shp[3]; }
+      else if (shp.length === 3) { z = shp[0]; y = shp[1]; x = shp[2]; components = 1; }
+      else if (shp.length === 2) { z = 1; y = shp[0]; x = shp[1]; components = 1; }
+      else throw new Error("Unsupported array shape: expected 2D/3D or 4D (Z,Y,X,C)");
+
+      const imageData = vtk.Common.DataModel.vtkImageData.newInstance();
+      imageData.setOrigin(0,0,0);
+      imageData.setSpacing(1,1,1);
+      imageData.setDimensions(x, y, z);
+
+      // When components>1 and equals 4 we assume RGBA per-voxel; we'll set as scalars but interpret later
+      const vtkArray = vtk.Common.Core.vtkDataArray.newInstance({
+        numberOfComponents: components,
+        values: parsed.data,
+      });
+      vtkArray.setName("Scalars");
+      imageData.getPointData().setScalars(vtkArray);
+      return imageData;
+    }
+
+    // Utility: create vtk.js point polydata from Nx3 Float32Array or array
+    function createPointPolyData(pointsArray) {
+      // pointsArray: Float32Array or Array with length N*3
+      const pts = vtk.Common.Core.vtkPoints.newInstance();
+      pts.setData(pointsArray, 3);
+      const poly = vtk.Common.DataModel.vtkPolyData.newInstance();
+      poly.setPoints(pts);
+      return poly;
+    }
+
+    // Global references to keep alive
+    let fullScreenRenderer = null;
+    let currentVolumeActor = null;
+    let currentMotorActor = null;
+    let renderer = null;
+    let renderWindow = null;
+    let mapper = null;
+
+    // Zoom control state
+    // We implement zoom as a *delta* from the previous slider value, so we can use
+    // camera.dolly()/parallelScale without resetting camera/focal point (prevents panning drift).
+    let zoomHandlersInstalled = false;
+    let lastZoomSliderValue = 100;
+
+    function clampNumber(v, minV, maxV) {
+      return Math.max(minV, Math.min(maxV, v));
+    }
+
+    function getZoomSliderEl() {
+      return document.getElementById('vtkZoomSlider');
+    }
+
+    function getActiveCameraSafe() {
+      try {
+        if (!renderer || typeof renderer.getActiveCamera !== 'function') return null;
+        return renderer.getActiveCamera();
+      } catch {
+        return null;
+      }
+    }
+
+    function applyZoomFromSliderValue(sliderValue) {
+      const camera = getActiveCameraSafe();
+      if (!camera || !renderWindow) return;
+
+      const zoomSlider = getZoomSliderEl();
+      const minV = zoomSlider ? parseInt(zoomSlider.min || '10', 10) : 10;
+      const maxV = zoomSlider ? parseInt(zoomSlider.max || '300', 10) : 300;
+
+      const next = clampNumber(Number(sliderValue), minV, maxV);
+      const prev = clampNumber(Number(lastZoomSliderValue), minV, maxV);
+      lastZoomSliderValue = next;
+
+      // Factor > 1 => zoom in. Factor < 1 => zoom out.
+      const factor = (prev > 0) ? (next / prev) : 1;
+      if (!Number.isFinite(factor) || factor <= 0 || Math.abs(factor - 1) < 1e-9) return;
+
+      try {
+        const isParallel = (typeof camera.getParallelProjection === 'function') ? !!camera.getParallelProjection() : false;
+
+        if (isParallel && typeof camera.getParallelScale === 'function' && typeof camera.setParallelScale === 'function') {
+          // Keep focal point fixed; zoom via parallelScale.
+          const curScale = camera.getParallelScale();
+          if (Number.isFinite(curScale) && curScale > 0) {
+            const newScale = curScale / factor;
+            camera.setParallelScale(newScale);
+          }
+        } else if (typeof camera.dolly === 'function') {
+          // Perspective zoom: dolly preserves focal point (no panning).
+          camera.dolly(factor);
+        } else if (
+          typeof camera.getPosition === 'function' &&
+          typeof camera.getFocalPoint === 'function' &&
+          typeof camera.setPosition === 'function'
+        ) {
+          // Fallback: move camera along view direction towards/away from focal point.
+          const pos = camera.getPosition();
+          const fp = camera.getFocalPoint();
+          const vx = pos[0] - fp[0];
+          const vy = pos[1] - fp[1];
+          const vz = pos[2] - fp[2];
+          const curDist = Math.sqrt(vx*vx + vy*vy + vz*vz);
+          if (Number.isFinite(curDist) && curDist > 1e-9) {
+            const newDist = curDist / factor;
+            const s = newDist / curDist;
+            camera.setPosition(fp[0] + vx * s, fp[1] + vy * s, fp[2] + vz * s);
+          }
+        }
+
+        if (typeof camera.modified === 'function') {
+          camera.modified();
+        }
+
+        if (renderer && typeof renderer.resetCameraClippingRange === 'function') {
+          renderer.resetCameraClippingRange();
+        }
+        renderWindow.render();
+      } catch {
+        // ignore
+      }
+    }
+
+    function installZoomHandlersOnce() {
+      if (zoomHandlersInstalled) return;
+      zoomHandlersInstalled = true;
+
+      const zoomSlider = getZoomSliderEl();
+      const container = document.getElementById('vtkContainer');
+      if (!zoomSlider || !container) return;
+
+      const zoomInBtn = document.getElementById('vtkZoomInBtn');
+      const zoomOutBtn = document.getElementById('vtkZoomOutBtn');
+      const dotsWrap = document.getElementById('vtkZoomDots');
+
+      let currentDotIndex = null;
+
+      function getDots() {
+        if (!dotsWrap) return [];
+        return Array.from(dotsWrap.querySelectorAll('.vtk-zoom-dot'));
+      }
+
+      function setActiveDotIndex(idx) {
+        const dots = getDots();
+        if (dots.length === 0) return;
+        const clamped = clampNumber(Number(idx), 0, dots.length - 1);
+        currentDotIndex = clamped;
+        dots.forEach((d, i) => {
+          if (i === clamped) d.classList.add('is-active');
+          else d.classList.remove('is-active');
+        });
+      }
+
+      function dotIndexFromSliderValue(sliderValue) {
+        const dots = getDots();
+        if (dots.length === 0) return null;
+
+        const minV = parseInt(zoomSlider.min || '10', 10);
+        const maxV = parseInt(zoomSlider.max || '300', 10);
+        const v = clampNumber(Number(sliderValue), minV, maxV);
+        const t = (maxV > minV) ? ((v - minV) / (maxV - minV)) : 0;
+        // Higher zoom => closer to top (smaller index)
+        return (dots.length - 1) - Math.round(t * (dots.length - 1));
+      }
+
+      function sliderValueFromDotIndex(dotIndex) {
+        const dots = getDots();
+        if (dots.length === 0) return null;
+
+        const minV = parseInt(zoomSlider.min || '10', 10);
+        const maxV = parseInt(zoomSlider.max || '300', 10);
+        const idx = clampNumber(Number(dotIndex), 0, dots.length - 1);
+
+        // idx 0 (top) => max zoom, idx last (bottom) => min zoom
+        const t = 1 - (idx / Math.max(1, (dots.length - 1)));
+        const raw = minV + t * (maxV - minV);
+        return Math.round(raw);
+      }
+
+      function syncZoomDots(sliderValue) {
+        const idx = dotIndexFromSliderValue(sliderValue);
+        if (idx === null) return;
+        setActiveDotIndex(idx);
+      }
+
+      function stepZoomByDot(deltaDot) {
+        const dots = getDots();
+        if (dots.length === 0) {
+          // Fallback if dots aren't present
+          const minV = parseInt(zoomSlider.min || '10', 10);
+          const maxV = parseInt(zoomSlider.max || '300', 10);
+          const cur = parseInt(zoomSlider.value || '100', 10);
+          const next = clampNumber(cur + (deltaDot < 0 ? 5 : -5), minV, maxV);
+          zoomSlider.value = String(next);
+          applyZoomFromSliderValue(next);
+          return;
+        }
+
+        if (currentDotIndex === null) {
+          syncZoomDots(parseInt(zoomSlider.value || '100', 10));
+        }
+
+        const nextDot = clampNumber(Number(currentDotIndex) + Number(deltaDot), 0, dots.length - 1);
+        setActiveDotIndex(nextDot);
+
+        const nextValue = sliderValueFromDotIndex(nextDot);
+        if (nextValue === null) return;
+        zoomSlider.value = String(nextValue);
+        applyZoomFromSliderValue(nextValue);
+      }
+
+      // Initialize dots to current slider value
+      syncZoomDots(parseInt(zoomSlider.value || '100', 10));
+
+      if (zoomInBtn) {
+        // Zoom in => move dot up (towards top)
+        zoomInBtn.addEventListener('click', () => stepZoomByDot(-1));
+      }
+      if (zoomOutBtn) {
+        // Zoom out => move dot down (towards bottom)
+        zoomOutBtn.addEventListener('click', () => stepZoomByDot(+1));
+      }
+
+      zoomSlider.addEventListener('input', () => {
+        const v = parseInt(zoomSlider.value, 10);
+        if (!Number.isFinite(v)) return;
+        syncZoomDots(v);
+        applyZoomFromSliderValue(v);
+      });
+
+      // Sync slider on mouse wheel zoom inside the viewer.
+      // We intercept the wheel so VTK doesn't also zoom independently (keeps slider + camera perfectly in sync).
+      container.addEventListener('wheel', (ev) => {
+        if (ev.ctrlKey) return; // allow browser/page zoom
+        if (!renderer || !renderWindow) return;
+
+        ev.preventDefault();
+        ev.stopPropagation();
+        // In some browsers/V﻿TK setups wheel handlers run in capture phase; ensure VTK can't also zoom.
+        if (typeof ev.stopImmediatePropagation === 'function') {
+          ev.stopImmediatePropagation();
+        }
+
+        const minV = parseInt(zoomSlider.min || '10', 10);
+        const maxV = parseInt(zoomSlider.max || '300', 10);
+        const cur = parseInt(zoomSlider.value || '100', 10);
+
+        // wheel up (deltaY < 0) => zoom in => slider increases
+        const step = 5;
+        const next = clampNumber(cur + (ev.deltaY < 0 ? step : -step), minV, maxV);
+        zoomSlider.value = String(next);
+        syncZoomDots(next);
+        applyZoomFromSliderValue(next);
+      }, { passive: false, capture: true });
+    }
+
+    function clearExisting() {
+      if (!fullScreenRenderer) return;
+      // dispose previous render window by removing its root container children
+      const root = document.getElementById('vtkCanvas');
+      // vtkFullScreenRenderWindow inserts its own DOM; easiest to reload page area:
+      root.innerHTML = '';
+      fullScreenRenderer = null;
+      currentVolumeActor = null;
+      currentMotorActor = null;
+    }
+
+    function renderImage(imageData) {
+      // clear previous
+      clearExisting();
+
+      const root = document.getElementById('vtkCanvas');
+      // create a full screen renderer but attach to our specific container
+      fullScreenRenderer = vtk.Rendering.Misc.vtkFullScreenRenderWindow.newInstance({
+        rootContainer: root,
+        background: [0.12,0.12,0.12],
+      });
+      renderer = fullScreenRenderer.getRenderer();
+      renderWindow = fullScreenRenderer.getRenderWindow();
+
+      // Volume mapper
+      mapper = vtk.Rendering.Core.vtkVolumeMapper.newInstance();
+      const sd = parseFloat(document.getElementById('sampleDist').value) || 1.0;
+      mapper.setSampleDistance(sd);
+      mapper.setInputData(imageData);
+
+      const actor = vtk.Rendering.Core.vtkVolume.newInstance();
+      actor.setMapper(mapper);
+
+      // Make transfer functions; if RGBA data present (components===4) use alpha channel
+      const scalars = imageData.getPointData().getScalars();
+      const comps = scalars.getNumberOfComponents ? scalars.getNumberOfComponents() : 1;
+      const range = scalars.getRange ? scalars.getRange() : [0,1];
+
+      const min = range[0], max = range[1];
+
+      const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+      const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+
+      if (comps === 4) {
+        // For RGBA we will treat colors per-voxel by using a mapper that expects components.
+        // vtkVolumeMapper in vtk.js expects a scalar + transfer functions; per-voxel RGBA isn't directly supported,
+        // but we can approximate by setting color transfer to map scalar->color and opacity from 4th component.
+        // Strategy: compute scalar = first component for color mapping and use 4th component for opacity via shader replacement.
+        ctfun.addRGBPoint(min, 0,0,0);
+        ctfun.addRGBPoint(max, 1,1,1);
+        ofun.addPoint(min, 0.0);
+        ofun.addPoint(max, 1.0);
+
+        actor.getProperty().setRGBTransferFunction(0, ctfun);
+        actor.getProperty().setScalarOpacity(0, ofun);
+        actor.getProperty().setScalarOpacityUnitDistance(0, 1.0);
+        actor.getProperty().setInterpolationTypeToLinear();
+
+        // shader replacement: attempt to route alpha from fourth component
+        mapper.addShaderReplacement(
+          vtk.Rendering.Core.vtkVolumeMapper.FragmentShaderReplacementType.DEFAULT,
+          '//VTK::ComputeColor::Impl',
+          true,
+          `
+            // Attempt to use fourth component as alpha if present
+            // 'in_fragColor' may already contain computed color; direct access to voxel components is limited in this context.
+            // This replacement is a best-effort: for best RGBA fidelity, convert RGBA to a single-scalar volume + separate alpha volume on server side.
+            // We'll leave default behavior but increase opacity mapping.
+            // (Note: complex per-voxel RGBA needs server-side conversion for robust results.)
+          `,
+          false
+        );
+
+      } else {
+        // Greyscale / scalar volume: set simple TF
+        ctfun.addRGBPoint(min, 0.0,0.0,0.0);
+        ctfun.addRGBPoint((min+max)/2, 0.8,0.8,0.8);
+        ctfun.addRGBPoint(max, 1.0,1.0,1.0);
+
+        ofun.addPoint(min, 0.0);
+        ofun.addPoint((min+max)/2, 0.2);
+        ofun.addPoint(max, 1.0);
+
+        actor.getProperty().setRGBTransferFunction(0, ctfun);
+        actor.getProperty().setScalarOpacity(0, ofun);
+        actor.getProperty().setScalarOpacityUnitDistance(0, 1.0);
+        actor.getProperty().setInterpolationTypeToLinear();
+      }
+
+      renderer.addVolume(actor);
+      renderer.resetCamera();
+
+      // Reset zoom state for this scene
+      lastZoomSliderValue = 100;
+      try {
+        const zoomSlider = getZoomSliderEl();
+        if (zoomSlider) zoomSlider.value = '100';
+      } catch {
+        // ignore
+      }
+
+      renderWindow.render();
+
+      currentVolumeActor = actor;
+
+      // wire sample distance control
+      const sampleCtrl = document.getElementById('sampleDist');
+      sampleCtrl.oninput = () => {
+        mapper.setSampleDistance(parseFloat(sampleCtrl.value));
+        renderWindow.render();
+      };
+
+      document.getElementById('viewerOverlayMessage').textContent = 'Volume loaded: ' + imageData.getDimensions().join('x');
+    }
+
+    // Ensure zoom UI is wired even before a volume is loaded
+    installZoomHandlersOnce();
+
+    // Render motors as ARGB volume overlay
+    function renderMotors(motorImageData) {
+      if (!renderWindow || !renderer) {
+        console.warn('Render window not ready yet.');
+        return;
+      }
+
+      // Remove old motor actor if exists
+      if (currentMotorActor) {
+        renderer.removeVolume(currentMotorActor);
+      }
+
+      // Create a volume mapper for the motors
+      const motorMapper = vtk.Rendering.Core.vtkVolumeMapper.newInstance();
+      const sd = parseFloat(document.getElementById('sampleDist').value) || 1.0;
+      motorMapper.setSampleDistance(sd);
+      motorMapper.setInputData(motorImageData);
+
+      const motorActor = vtk.Rendering.Core.vtkVolume.newInstance();
+      motorActor.setMapper(motorMapper);
+
+      // For ARGB motors: setup to use per-voxel colors
+      // We'll use component mode to interpret RGBA directly
+      const scalars = motorImageData.getPointData().getScalars();
+      const comps = scalars.getNumberOfComponents();
+      
+      if (comps === 4) {
+        // ARGB/RGBA volume - use independent components mode
+        motorActor.getProperty().setIndependentComponents(false);
+        
+        // Create transfer functions for RGBA
+        const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+        
+        // Get range from alpha channel (component 3 for RGBA, or 0 for ARGB)
+        const range = scalars.getRange(0);
+        const min = range[0], max = range[1];
+        
+        // Map values to colors (assuming data is normalized 0-255 or 0-1)
+        ctfun.addRGBPoint(0, 0, 0, 0);
+        ctfun.addRGBPoint(255, 1, 1, 1);
+        
+        // Use alpha channel for opacity (component 3)
+        ofun.addPoint(0, 0.0);
+        ofun.addPoint(1, 1.0);
+        ofun.addPoint(255, 1.0);
+        
+        motorActor.getProperty().setRGBTransferFunction(0, ctfun);
+        motorActor.getProperty().setScalarOpacity(0, ofun);
+        motorActor.getProperty().setInterpolationTypeToLinear();
+      }
+
+      renderer.addVolume(motorActor);
+      currentMotorActor = motorActor;
+      renderWindow.render();
+      
+      document.getElementById('viewerOverlayMessage').textContent += ' + Motors overlay';
+    }
+
+    // Read file input and load
+    let lastParsedVolume = null;
+    let lastParsedMotors = null;
+
+    document.getElementById('fileInput').addEventListener('change', (ev)=>{
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const parsed = parseNpy(e.target.result);
+          lastParsedVolume = parsed;
+          const imageData = vtkImageFromNpy(parsed);
+          renderImage(imageData);
+          if (lastParsedMotors) {
+            const motorImageData = vtkImageFromNpy(lastParsedMotors);
+            renderMotors(motorImageData);
+          }
+        } catch (err) {
+          alert('Error parsing .npy volume: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+async function loadVolumeFromURL(url) {
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error('Fetch failed: ' + resp.status);
+    const ab = await resp.arrayBuffer();
+    const parsed = parseNpy(ab);
+    lastParsedVolume = parsed;
+    const imageData = vtkImageFromNpy(parsed);
+    renderImage(imageData);
+    if (lastParsedMotors) {
+      const motorImageData = vtkImageFromNpy(lastParsedMotors);
+      renderMotors(motorImageData);
+    }
+  } catch (err) {
+    alert('Error loading volume from URL: ' + err.message);
+  }
+}
+
+document.getElementById("loadPresetVolume").addEventListener("click", () => {
+  const sel = document.getElementById("presetVolumeSelect");
+  const url = sel.value;
+
+  if (url === "none") {
+    alert("Select a volume.");
+    return;
+  }
+
+  loadVolumeFromURL(url);
+});
+
+    document.getElementById("loadUrl").addEventListener("click", () => {
+  const url = document.getElementById("urlInput").value.trim();
+  if (!url) return alert("Enter a URL.");
+  loadVolumeFromURL(url);
+});
+
+
+    // Motors (.npy - accepts Nx3 coordinates OR volume data)
+    document.getElementById('motorsFile').addEventListener('change', (ev)=>{
+      const file = ev.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        try {
+          const parsed = parseNpy(e.target.result);
+          const shape = parsed.shape;
+          
+          // Check if it's ARGB motor volume (Z,Y,X,4) or grayscale base volume
+          if (shape.length === 4 && shape[3] === 4) {
+            // ARGB motors volume: overlay on existing volume
+            lastParsedMotors = parsed;
+            const motorImageData = vtkImageFromNpy(parsed);
+            if (!renderer) {
+              // No base volume loaded yet
+              console.log('Motors loaded. Please load the base volume first to see the overlay.');
+            } else {
+              // Add motors overlay to existing scene
+              renderMotors(motorImageData);
+            }
+          } else if (shape.length === 3 || shape.length === 2) {
+            // Grayscale volume data: load as base volume
+            lastParsedVolume = parsed;
+            const imageData = vtkImageFromNpy(parsed);
+            renderImage(imageData);
+            if (lastParsedMotors) {
+              const motorImageData = vtkImageFromNpy(lastParsedMotors);
+              renderMotors(motorImageData);
+            }
+          } else {
+            throw new Error('Unsupported shape: expected (Z,Y,X) for volume or (Z,Y,X,4) for motors');
+          }
+        } catch (err) {
+          alert('Error parsing motors .npy: ' + err.message);
+        }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    document.getElementById('loadMotorsUrl').addEventListener('click', async ()=>{
+      const url = document.getElementById('motorsUrl').value.trim();
+      if (!url) return alert('Enter a motors URL');
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error('Fetch failed: ' + resp.status);
+        const ab = await resp.arrayBuffer();
+        const parsed = parseNpy(ab);
+        const shape = parsed.shape;
+        
+        // Check if it's ARGB motor volume (Z,Y,X,4) or grayscale base volume
+        if (shape.length === 4 && shape[3] === 4) {
+          // ARGB motors volume: overlay on existing volume
+          lastParsedMotors = parsed;
+          const motorImageData = vtkImageFromNpy(parsed);
+          if (!renderer) {
+            console.log('Motors loaded. Please load the base volume first to see the overlay.');
+          } else {
+            renderMotors(motorImageData);
+          }
+        } else if (shape.length === 3 || shape.length === 2) {
+          // Grayscale volume data: load as base volume
+          lastParsedVolume = parsed;
+          const imageData = vtkImageFromNpy(parsed);
+          renderImage(imageData);
+          if (lastParsedMotors) {
+            const motorImageData = vtkImageFromNpy(lastParsedMotors);
+            renderMotors(motorImageData);
+          }
+        } else {
+          throw new Error('Unsupported shape: expected (Z,Y,X) for volume or (Z,Y,X,4) for motors');
+        }
+      } catch (err) {
+        alert('Motors load error: ' + err.message);
+      }
+    });
+
+    // toggles
+    document.getElementById('showVolume').addEventListener('change', (e)=>{
+      if (!currentVolumeActor) return;
+      currentVolumeActor.setVisibility(e.target.checked);
+      if (renderWindow) renderWindow.render();
+    });
+    document.getElementById('showMotors').addEventListener('change', (e)=>{
+      if (!currentMotorActor) return;
+      currentMotorActor.setVisibility(e.target.checked);
+      if (renderWindow) renderWindow.render();
+    });
+
+    // createNpyBuffer - re-create .npy from parsed representation (basic)
+    function createNpyBuffer(parsed) {
+      const descr = parsed.descr || "<f4";
+      const shape = parsed.shape.slice();
+      const shapeStr = "(" + shape.join(",") + (shape.length===1? ",": "") + ")";
+      let header = "{'descr': '" + descr + "', 'fortran_order': False, 'shape': " + shapeStr + ", }";
+      const encoder = new TextEncoder();
+      let headerBytes = encoder.encode(header + "\n");
+      const preLen = 10 + headerBytes.length;
+      const pad = (16 - (preLen % 16)) % 16;
+      if (pad>0) {
+        header = header + " ".repeat(pad) + "\n";
+        headerBytes = encoder.encode(header);
+      }
+      const magic = "\x93NUMPY";
+      const major = 1, minor = 0;
+      const headerLen = headerBytes.length;
+      const dataView = parsed.data;
+      const dataByteArray = new Uint8Array(dataView.buffer, dataView.byteOffset, dataView.byteLength);
+      const out = new Uint8Array(10 + headerLen + dataByteArray.length);
+      let offset = 0;
+      for (let i=0;i<6;i++) out[offset++] = magic.charCodeAt(i);
+      out[offset++] = major; out[offset++] = minor;
+      out[offset++] = headerLen & 0xff; out[offset++] = (headerLen>>8)&0xff;
+      out.set(headerBytes, offset); offset += headerLen;
+      out.set(dataByteArray, offset);
+      return out.buffer;
+    }
+
+    // Small helper wiring to ensure the vtkCanvas has the right size when tab shown
+    function ensureCanvasSize() {
+      const root = document.getElementById('vtkCanvas');
+      if (!root) return;
+      root.style.width = '100%';
+      root.style.height = '100%';
+    }
+
+    // Expose helpers so other scripts (tab switching) can trigger a relayout.
+    window.ensureCanvasSize = ensureCanvasSize;
+    window.vtkForceResizeRender = function vtkForceResizeRender() {
+      try {
+        ensureCanvasSize();
+        if (renderWindow) {
+          renderWindow.render();
+        }
+      } catch (e) {
+        console.warn('vtkForceResizeRender failed:', e);
+      }
+    };
+    window.addEventListener('resize', () => {
+      ensureCanvasSize();
+      if (renderWindow) renderWindow.render();
+    });
+    ensureCanvasSize();
+    function parseNpy(buffer) {
+  const view = new DataView(buffer);
+
+  // Check magic string
+  const magic = String.fromCharCode(
+    view.getUint8(0),
+    view.getUint8(1),
+    view.getUint8(2),
+    view.getUint8(3),
+    view.getUint8(4),
+    view.getUint8(5)
+  );
+  if (magic !== "\x93NUMPY") {
+    throw new Error("Not a .npy file (magic mismatch)");
+  }
+
+  const major = view.getUint8(6);
+  const minor = view.getUint8(7);
+
+  let headerLength;
+  let offset = 8;
+
+  // NumPy v1.0 – v1.9
+  if (major === 1) {
+    headerLength = view.getUint16(offset, true);
+    offset += 2;
+  }
+  // NumPy v2.0+
+  else if (major === 2) {
+    headerLength = view.getUint32(offset, true);
+    offset += 4;
+  }
+  else {
+    throw new Error("Unsupported NPY version: " + major + "." + minor);
+  }
+
+  const headerText = new TextDecoder("utf-8").decode(
+    new Uint8Array(buffer, offset, headerLength)
+  );
+
+  // Clean header: remove trailing spaces, newlines, etc.
+  const cleanHeader = headerText
+    .replace(/[\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  // Extract descr, fortran_order, shape using relaxed regex
+  const descrMatch = cleanHeader.match(/'descr':\s*'([^']+)'/);
+  const shapeMatch = cleanHeader.match(/'shape':\s*\(([^)]*)\)/);
+  const fortranMatch = cleanHeader.match(/'fortran_order':\s*(True|False)/);
+
+  if (!descrMatch || !shapeMatch) {
+    throw new Error("Invalid .npy header format");
+  }
+
+  const descr = descrMatch[1].trim();
+  const shapeStr = shapeMatch[1].trim();
+  const fortran = fortranMatch ? fortranMatch[1] === "True" : false;
+
+  let shape = [];
+  if (shapeStr.length > 0) {
+    shape = shapeStr
+      .split(",")
+      .map(s => s.trim())
+      .filter(s => s.length > 0)
+      .map(s => parseInt(s, 10));
+  }
+
+  offset += headerLength;
+
+  // Determine dtype
+  const typeCode = descr.slice(-2);
+  let data;
+  const count = shape.reduce((a, b) => a * b, 1);
+
+  switch (typeCode) {
+    case "f4": data = new Float32Array(buffer, offset, count); break;
+    case "f8": data = new Float64Array(buffer, offset, count); break;
+    case "i1": data = new Int8Array(buffer, offset, count); break;
+    case "u1": data = new Uint8Array(buffer, offset, count); break;
+    case "i2": data = new Int16Array(buffer, offset, count); break;
+    case "u2": data = new Uint16Array(buffer, offset, count); break;
+    case "i4": data = new Int32Array(buffer, offset, count); break;
+    case "u4": data = new Uint32Array(buffer, offset, count); break;
+    default:
+      throw new Error("Unsupported dtype: " + descr);
+  }
+
+  return {
+    descr,
+    shape,
+    data,
+    fortran
+  };
+}
+
+
+    </script>
+  </body>
+</html>

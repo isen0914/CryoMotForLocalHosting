@@ -1,0 +1,41 @@
+# Logs
+*.log
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+venv/
+env/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files (don't upload to git)
+backend/outputs/
+outputs/
+
+# Model files (upload separately or use Git LFS)
+*.pt
+*.onnx
+*.pth
+
+# Test data
+*.npy
+*.zip
+
+# Temporary files
+temp/
+tmp/
+*.tmp

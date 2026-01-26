@@ -3,7 +3,7 @@ services:
     name: yolo-fastapi-backend
     env: python
     buildCommand: pip install -r backend/requirements.txt
-    startCommand: python backend/main.py
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
     plan: free
     envVars:
       - key: PORT

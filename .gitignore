@@ -26,10 +26,8 @@ Thumbs.db
 backend/outputs/
 outputs/
 
-# Model files (upload separately or use Git LFS)
-*.pt
-*.onnx
-*.pth
+# Model files are now included in the repo
+# Removed: *.pt, *.onnx, *.pth
 
 # Test data
 *.npy

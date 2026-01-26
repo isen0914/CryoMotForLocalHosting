@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: yolo-fastapi-backend
+    env: python
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: python backend/main.py
+    plan: free
+    envVars:
+      - key: PORT
+        value: 10000

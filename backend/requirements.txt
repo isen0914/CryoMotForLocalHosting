@@ -5,6 +5,7 @@ ultralytics
 torch
 Pillow
 scikit-image
+scikit-learn
 
 # for ONNX export & quantized inference
 onnx

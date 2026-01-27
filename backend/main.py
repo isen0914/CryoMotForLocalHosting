@@ -315,7 +315,7 @@ async def detect(zip_file: UploadFile = File(...)):
                 
                 # ===== STEP 2: RUN YOLO DETECTION ON ORIGINAL IMAGES =====
                 logger.info("[DETECTION] Starting YOLO inference...")
-                
+
                 # Store all YOLO results for clustering
                 all_yolo_results = []
 
@@ -335,9 +335,12 @@ async def detect(zip_file: UploadFile = File(...)):
                         continue
 
                 volume = np.zeros((depth, target_h, target_w, 4), dtype=np.uint8)
-                
+
                 # Prepare 3D volume for transparent PNGs (250x250) - RGBA format
                 transparent_volume = np.zeros((depth, 250, 250, 4), dtype=np.uint8)
+
+                # --- Inference timing fix ---
+                inference_start = time.perf_counter()
 
                 for idx, img in enumerate(image_paths):
                     current_annotated_url = None
@@ -526,6 +529,10 @@ async def detect(zip_file: UploadFile = File(...)):
                         "slice_url": current_slice_url,
                     }) + "\n").encode('utf-8')
 
+                # --- End inference timing ---
+                inference_end = time.perf_counter()
+                inference_time = inference_end - inference_start
+
                 # Perform 3D clustering
                 logger.info("[CLUSTERING] Organizing detections...")
                 detections_by_tomo = organize_detections(all_yolo_results, image_paths)
@@ -631,11 +638,12 @@ async def detect(zip_file: UploadFile = File(...)):
                             })
                     
                     final = {
-                        "results": results, 
+                        "results": results,
                         "volume_url": f"/outputs/{vol_name}",
                         "transparent_volume_url": f"/outputs/{transparent_vol_name}",
                         "processed_volume_url": f"/outputs/{processed_vol_name}",
                         "elapsed_ms": elapsed_ms,
+                        "inference_time": round(inference_time, 3),
                         "total_motors": total_motors,
                         "motors_by_tomo": {k: len(v) for k, v in motors_3d.items()},
                         "motors_coordinates": motors_coordinates

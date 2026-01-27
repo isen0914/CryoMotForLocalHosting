@@ -19,14 +19,22 @@ from skimage import io, transform, filters
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 app = FastAPI(title="YOLO FastAPI Detector")
+# Add CORS middleware immediately after app creation
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # You can restrict to ["https://cryomot.onrender.com"] if needed
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Root endpoint for Render health check
 @app.get("/")
 def read_root():
     return {"status": "ok"}
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True,
-                   allow_methods=["*"], allow_headers=["*"])
+
 OUTPUT_DIR = Path("outputs"); OUTPUT_DIR.mkdir(exist_ok=True)
 app.mount("/outputs", StaticFiles(directory=str(OUTPUT_DIR)), name="outputs")
 
@@ -347,13 +355,15 @@ async def detect(zip_file: UploadFile = File(...)):
                     current_transparent_url = None
                     current_slice_url = None
                     try:
-                        logger.info(f"Processing image: {img}")
+                        logger.info(f"[INFERENCE] Starting processing for image {idx+1}/{len(image_paths)}: {img}")
                         with Image.open(img) as pil_src:
                             pil_rgb = pil_src.convert('RGB')
                             img_arr = np.array(pil_rgb)
                             orig = pil_src.convert('RGBA')
 
+                        logger.info(f"[INFERENCE] Running model inference for {img}")
                         r = model(img_arr)[0]
+                        logger.info(f"[INFERENCE] Model inference complete for {img}")
                         all_yolo_results.append(r)  # Store for clustering
                         boxes = r.boxes.xyxy.tolist() if getattr(r, 'boxes', None) is not None else []
                         out_name = f"{img.stem}_annotated{img.suffix}"
@@ -375,6 +385,7 @@ async def detect(zip_file: UploadFile = File(...)):
                             except Exception:
                                 pass
 
+                        logger.info(f"[INFERENCE] Saved annotated image for {img}")
                         results.append({
                             "image": str(img.relative_to(images_dir)),
                             "boxes": boxes,
@@ -386,6 +397,7 @@ async def detect(zip_file: UploadFile = File(...)):
 
                         # Create transparent PNG with only bounding boxes visible (no shading/fill)
                         try:
+                            logger.info(f"[INFERENCE] Creating transparent PNG for {img}")
                             with Image.open(img) as orig_img:
                                 # Draw directly in 250x250 so there is no downsampling blur that can
                                 # make boxes look "filled" when volume-rendered.
@@ -440,6 +452,7 @@ async def detect(zip_file: UploadFile = File(...)):
                                 current_transparent_url = f"/outputs/{transparent_name}"
                                 
                                 transparent_resized.close()
+                            logger.info(f"[INFERENCE] Transparent PNG created for {img}")
                         except Exception as e:
                             logger.exception(f"Failed to create transparent PNG for {img}: {e}")
                             results[-1]["transparent_error"] = str(e)
@@ -447,6 +460,7 @@ async def detect(zip_file: UploadFile = File(...)):
                         # Create a per-slice preview image for the Post-processing panel.
                         # IMPORTANT: keep it opaque (original + overlays) so thumbnails are visible.
                         try:
+                            logger.info(f"[INFERENCE] Creating post-processing slice for {img}")
                             with Image.open(img) as _orig_file:
                                 orig = _orig_file.convert('RGBA')
                                 iw, ih = orig.size
@@ -507,6 +521,7 @@ async def detect(zip_file: UploadFile = File(...)):
 
                             results[-1]["slice_url"] = f"/outputs/{slice_name}"
                             current_slice_url = f"/outputs/{slice_name}"
+                            logger.info(f"[INFERENCE] Post-processing slice created for {img}")
                         except Exception as e:
                             logger.exception(f"Failed to create slice for {img}: {e}")
                             results[-1]["slice_error"] = str(e)
@@ -520,6 +535,7 @@ async def detect(zip_file: UploadFile = File(...)):
                         progress = int(((idx + 1) / len(image_paths)) * 100)
                     except Exception:
                         progress = 0
+                    logger.info(f"[INFERENCE] Yielding progress for image {img}: {progress}% done")
                     yield (json.dumps({
                         "stage": "inference",
                         "progress": progress,
@@ -667,9 +683,10 @@ async def detect(zip_file: UploadFile = File(...)):
                             })
                     
                     final = {
-                        "results": results, 
-                        "volume_error": str(e), 
+                        "results": results,
+                        "volume_error": str(e),
                         "elapsed_ms": elapsed_ms,
+                        "inference_time": round(inference_time, 3) if 'inference_time' in locals() else None,
                         "total_motors": total_motors,
                         "motors_by_tomo": {k: len(v) for k, v in motors_3d.items()},
                         "motors_coordinates": motors_coordinates

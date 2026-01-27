@@ -585,9 +585,21 @@ async function uploadToBackend() {
         }
         
         // Inference complete, start post-processing
-        pipelineTiming.inference.end = Date.now();
-        const inferenceTime = ((pipelineTiming.inference.end - pipelineTiming.inference.start) / 1000).toFixed(2);
-        updatePipelineStage(2, 'completed', `${inferenceTime}s`);
+        // Use backend's inference_time if available, otherwise fallback to local timer
+        let backendInferenceTime = null;
+        if (typeof lastBackendResults === 'object' && lastBackendResults !== null && lastBackendResults.inference_time) {
+            backendInferenceTime = lastBackendResults.inference_time;
+        }
+        if (!backendInferenceTime && typeof window.lastBackendInferenceTime === 'number') {
+            backendInferenceTime = window.lastBackendInferenceTime;
+        }
+        if (backendInferenceTime) {
+            updatePipelineStage(2, 'completed', `${backendInferenceTime}s`);
+        } else {
+            pipelineTiming.inference.end = Date.now();
+            const inferenceTime = ((pipelineTiming.inference.end - pipelineTiming.inference.start) / 1000).toFixed(2);
+            updatePipelineStage(2, 'completed', `${inferenceTime}s`);
+        }
         
         pipelineTiming.postprocessing.start = Date.now();
         updatePipelineStage(3, 'running', 'Processing...');

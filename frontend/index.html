@@ -381,7 +381,7 @@
 
             <!-- ★★★ GOOGLE DRIVE DROPDOWN HERE ★★★ -->
             
-            <label style="font-size:12px; margin-top:10px;">Select GitHub Volume</label>
+            <label style="font-size:12px; margin-top:10px;">Select Present Volumes</label>
             <select id="presetVolumeSelect" style="width:100%; margin-top:4px;">
             <option value="none" selected>None</option>
 
@@ -1968,13 +1968,15 @@ async function loadVolumeFromURL(url) {
 
 document.getElementById("loadPresetVolume").addEventListener("click", () => {
   const sel = document.getElementById("presetVolumeSelect");
-  const url = sel.value;
+  const filename = sel.value;
 
-  if (url === "none") {
+  if (filename === "none") {
     alert("Select a volume.");
     return;
   }
 
+  // Fetch from backend API
+  const url = `http://localhost:8000/download_volume/${filename}`;
   loadVolumeFromURL(url);
 });
 

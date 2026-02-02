@@ -214,5 +214,77 @@
     "med_conf": "0",
     "low_conf": "0",
     "created_at": "2026-01-25 16:40:55"
+  },
+  {
+    "id": 19,
+    "timestamp": "01-27-2026 21:06:48",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "122.8s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-01-27 21:06:48"
+  },
+  {
+    "id": 20,
+    "timestamp": "01-27-2026 23:18:13",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "629.1s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-01-27 23:18:13"
+  },
+  {
+    "id": 21,
+    "timestamp": "01-29-2026 21:27:41",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "738.6s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-01-29 21:27:41"
+  },
+  {
+    "id": 22,
+    "timestamp": "02-02-2026 18:54:48",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "755.4s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-02 18:54:48"
+  },
+  {
+    "id": 23,
+    "timestamp": "02-02-2026 19:56:50",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "678.9s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-02 19:56:50"
+  },
+  {
+    "id": 24,
+    "timestamp": "02-02-2026 19:56:52",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "605.1s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-02 19:56:52"
   }
 ]

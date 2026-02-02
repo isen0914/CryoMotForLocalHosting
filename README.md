@@ -1,32 +1,76 @@
-# YOLO FastAPI Full Project
+# YOLO Flagellar Motor Detection System
 
-Quick local run (development)
+A FastAPI-based application for detecting flagellar motors in cryo-electron tomography images using YOLO object detection.
 
-1. Put your `best.pt` model into the `backend/` folder.
+## 🚀 Quick Start (New PC Setup)
 
-2. **(Optional) Generate quantized model** for faster inference:
+**First time setup:**
+```powershell
+.\setup.ps1
+```
 
-   ```powershell
-   cd backend
-   python quantize_model.py
-   ```
+**Start the application:**
+```powershell
+.\restart.ps1
+```
 
-   This creates `best.onnx` and `best.quant.onnx`. The backend automatically prefers `best.quant.onnx` if available, falling back to `best.pt`.
+**Access:**
+- Frontend: http://localhost:8001
+- Backend API: http://localhost:8000
+- API Docs: http://localhost:8000/docs
 
-3. Create and activate a Python venv (recommended):
+📖 **Detailed Instructions**: See [SETUP_GUIDE.md](SETUP_GUIDE.md) for complete setup instructions.
 
-   - Windows PowerShell:
+📦 **Deployment Guide**: See [DEPLOYMENT.md](DEPLOYMENT.md) for moving to a new PC.
 
-     ```powershell
-     python -m venv .venv
-     .\.venv\Scripts\Activate.ps1
-     ```
+## Features
 
-   - macOS / Linux:
-     ```bash
-     python -m venv .venv
-     source .venv/bin/activate
-     ```
+- **Automated Detection**: YOLO-based flagellar motor detection in tomograms
+- **3D Clustering**: DBSCAN clustering for 3D motor localization
+- **Image Preprocessing**: Automated Otsu thresholding and masking
+- **Volume Generation**: Creates 3D volumes for visualization
+- **Real-time Progress**: Streaming updates during processing
+- **History Tracking**: Saves detection results for analysis
+
+## Requirements
+
+- Python 3.8 or higher
+- 8GB RAM minimum (16GB recommended)
+- Model file: `best.pt` or `best.quant.onnx` in `backend/` directory
+
+---
+
+## Manual Setup (Advanced)
+
+### 1. Put your model file
+
+Put your `best.pt` model into the `backend/` folder.
+
+### 2. (Optional) Generate quantized model
+
+For faster inference:
+
+```powershell
+cd backend
+python quantize_model.py
+```
+
+This creates `best.onnx` and `best.quant.onnx`. The backend automatically prefers `best.quant.onnx` if available, falling back to `best.pt`.
+
+### 3. Create and activate a Python venv (recommended):
+
+- Windows PowerShell:
+
+  ```powershell
+  python -m venv .venv
+  .\.venv\Scripts\Activate.ps1
+  ```
+
+- macOS / Linux:
+  ```bash
+  python -m venv .venv
+  source .venv/bin/activate
+  ```
 
 4. Install dependencies:
 
@@ -41,7 +85,27 @@ Quick local run (development)
    uvicorn main:app --reload --host 0.0.0.0 --port 8000
    ```
 
-6. Open `frontend/index.html` in a browser and change `backendUrl` in `frontend/script.js` if needed.
+6. Run the frontend locally (recommended for CORS and API calls):
+
+    - To serve the classic frontend:
+       ```powershell
+       cd frontend
+       python serve_frontend.py
+       ```
+       Then open [http://localhost:8080](http://localhost:8080) in your browser.
+
+    - To serve the new frontend:
+       ```powershell
+       cd newfront
+       python serve_newfront.py
+       ```
+       Then open [http://localhost:8081](http://localhost:8081) in your browser.
+
+    Both scripts add CORS headers for local API calls to the backend.
+
+    If you prefer, you can still open the HTML files directly, but some browsers may block API requests due to CORS.
+
+7. The frontend will auto-detect the backend URL if run from localhost. If you need to override, edit `frontend/config.js` or `newfront/script.js`.
 
 Docker (backend)
 

@@ -518,48 +518,53 @@ async function uploadToBackend() {
         // Start data loading
         pipelineTiming.dataLoading.start = Date.now();
         updatePipelineStage(0, 'running', 'Loading...');
-        
+
         const response = await fetch(BACKEND_URL + '/detect/', {
             method: 'POST',
             body: formData
         });
-        
+
         console.log('Response status:', response.status);
-        
+
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            let errorText = `HTTP ${response.status}: ${response.statusText}`;
+            try {
+                const errJson = await response.json();
+                if (errJson && errJson.detail) errorText += `\n${errJson.detail}`;
+            } catch {}
+            throw new Error(errorText);
         }
-        
+
         // Data loading complete
         pipelineTiming.dataLoading.end = Date.now();
         const loadTime = ((pipelineTiming.dataLoading.end - pipelineTiming.dataLoading.start) / 1000).toFixed(2);
         updatePipelineStage(0, 'completed', `${loadTime}s`);
-        
+
         // Start preprocessing
         pipelineTiming.preprocessing.start = Date.now();
         updatePipelineStage(1, 'running', 'Processing...');
-        
+
         // Process streaming response
         const reader = response.body.getReader();
         const decoder = new TextDecoder();
         let buffer = '';
-        
+
         let inferenceStarted = false;
-        
+
         while (true) {
             const {done, value} = await reader.read();
             if (done) break;
-            
+
             buffer += decoder.decode(value, {stream: true});
             const lines = buffer.split('\n');
             buffer = lines.pop();
-            
+
             for (const line of lines) {
                 if (line.trim()) {
                     try {
                         const data = JSON.parse(line);
                         console.log('Backend message:', data);
-                        
+
                         // Track stages based on progress
                         if (data.progress !== undefined) {
                             if (!inferenceStarted) {
@@ -567,7 +572,7 @@ async function uploadToBackend() {
                                 pipelineTiming.preprocessing.end = Date.now();
                                 const prepTime = ((pipelineTiming.preprocessing.end - pipelineTiming.preprocessing.start) / 1000).toFixed(2);
                                 updatePipelineStage(1, 'completed', `${prepTime}s`);
-                                
+
                                 pipelineTiming.inference.start = Date.now();
                                 updatePipelineStage(2, 'running', `${data.progress}%`);
                                 inferenceStarted = true;
@@ -575,7 +580,7 @@ async function uploadToBackend() {
                                 updatePipelineStage(2, 'running', `${data.progress}%`);
                             }
                         }
-                        
+
                         handleBackendResponse(data);
                     } catch (e) {
                         console.error('Failed to parse:', line, e);
@@ -583,7 +588,7 @@ async function uploadToBackend() {
                 }
             }
         }
-        
+
         // Inference complete, start post-processing
         // Use backend's inference_time if available, otherwise fallback to local timer
         let backendInferenceTime = null;
@@ -600,27 +605,27 @@ async function uploadToBackend() {
             const inferenceTime = ((pipelineTiming.inference.end - pipelineTiming.inference.start) / 1000).toFixed(2);
             updatePipelineStage(2, 'completed', `${inferenceTime}s`);
         }
-        
+
         pipelineTiming.postprocessing.start = Date.now();
         updatePipelineStage(3, 'running', 'Processing...');
-        
+
         // Simulate post-processing time (adjust based on actual backend timing)
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         pipelineTiming.postprocessing.end = Date.now();
         const postTime = ((pipelineTiming.postprocessing.end - pipelineTiming.postprocessing.start) / 1000).toFixed(2);
         updatePipelineStage(3, 'completed', `${postTime}s`);
-        
+
         // Results generation
         pipelineTiming.results.start = Date.now();
         updatePipelineStage(4, 'running', 'Generating...');
-        
+
         await new Promise(resolve => setTimeout(resolve, 300));
-        
+
         pipelineTiming.results.end = Date.now();
         const resultsTime = ((pipelineTiming.results.end - pipelineTiming.results.start) / 1000).toFixed(2);
         updatePipelineStage(4, 'completed', `${resultsTime}s`);
-        
+
         // Auto-load 3D volumes in the background (do NOT switch tabs)
         if (window.processedVolumeUrl || window.transparentVolumeUrl) {
             console.log('Processing complete! Auto-loading 3D volumes (no tab switch)...');
@@ -646,10 +651,31 @@ async function uploadToBackend() {
         } else {
             console.log('Processing complete!');
         }
-        
+
     } catch (error) {
         console.error('Upload error:', error);
-        alert('Error uploading file:\n' + error.message);
+        // Show error in a visible error area if available
+        let errorArea = document.getElementById('uploadErrorArea');
+        if (!errorArea) {
+            errorArea = document.createElement('div');
+            errorArea.id = 'uploadErrorArea';
+            errorArea.style.color = '#f44336';
+            errorArea.style.fontWeight = 'bold';
+            errorArea.style.margin = '16px 0';
+            errorArea.style.background = '#fff3f3';
+            errorArea.style.padding = '12px';
+            errorArea.style.border = '1px solid #f44336';
+            errorArea.style.borderRadius = '6px';
+            errorArea.style.maxWidth = '600px';
+            errorArea.style.whiteSpace = 'pre-line';
+            const dropZone = document.getElementById('dropZone');
+            if (dropZone && dropZone.parentNode) {
+                dropZone.parentNode.insertBefore(errorArea, dropZone.nextSibling);
+            } else {
+                document.body.appendChild(errorArea);
+            }
+        }
+        errorArea.textContent = 'Error uploading file:\n' + error.message + '\n\nIf this is a CORS or connection error, ensure:\n- Backend is running at ' + BACKEND_URL + '\n- Backend allows CORS for http://localhost:8001 (see FastAPI CORS settings)\n- No firewall or antivirus is blocking the connection.';
         updatePipelineStage(1, 'error', 'Failed');
     }
 }

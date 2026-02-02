@@ -24,7 +24,7 @@ app = FastAPI(title="YOLO FastAPI Detector")
 # Add CORS middleware immediately after app creation
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # You can restrict to ["https://cryomot.onrender.com"] if needed
+    allow_origins=["http://localhost:8001"],  # Only allow frontend origin
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -259,6 +259,16 @@ async def detect(zip_file: UploadFile = File(...)):
         raise HTTPException(status_code=400, detail="Please upload a .zip file")
 
     def gen():
+        # --- Timing variables ---
+        t0_total = time.perf_counter()
+        t0_preproc = None
+        t1_preproc = None
+        t0_infer = None
+        t1_infer = None
+        t0_post = None
+        t1_post = None
+        t0_dbscan = None
+        t1_dbscan = None
         try:
             yield (json.dumps({"stage": "received"}) + "\n").encode('utf-8')
             with tempfile.TemporaryDirectory() as tmpdir:
@@ -287,16 +297,17 @@ async def detect(zip_file: UploadFile = File(...)):
                 depth = max(1, len(image_paths))
                 
                 # ===== STEP 1: PREPROCESS IMAGES (from r.ipynb) =====
+                t0_preproc = time.perf_counter()
                 logger.info("[PREPROCESSING] Loading and resizing images to 250x250...")
                 yield (json.dumps({"stage": "preprocessing", "message": "Loading images..."}) + "\n").encode('utf-8')
-                
                 # Load and resize images (exactly as r.ipynb)
                 raw_volume = load_and_preprocess_images(image_paths, target_size=(250, 250))
-                
                 # Apply masking (exactly as r.ipynb)
                 logger.info("[PREPROCESSING] Applying Otsu masking...")
                 yield (json.dumps({"stage": "preprocessing", "message": "Applying masking..."}) + "\n").encode('utf-8')
                 processed_volume = process_volume_with_masking(raw_volume, threshold_method='otsu')
+                t1_preproc = time.perf_counter()
+                logger.info(f"[TIMING] Image extraction and preprocessing: ~{t1_preproc - t0_preproc:.2f} seconds")
                 
                 # Save processed volume (the clean volume for download)
                 base = Path(zip_file.filename).stem
@@ -322,6 +333,7 @@ async def detect(zip_file: UploadFile = File(...)):
                 }) + "\n").encode('utf-8')
                 
                 # ===== STEP 2: RUN YOLO DETECTION ON ORIGINAL IMAGES =====
+                t0_infer = time.perf_counter()
                 logger.info("[DETECTION] Starting YOLO inference...")
 
                 # Store all YOLO results for clustering
@@ -548,14 +560,22 @@ async def detect(zip_file: UploadFile = File(...)):
                 # --- End inference timing ---
                 inference_end = time.perf_counter()
                 inference_time = inference_end - inference_start
+                t1_infer = time.perf_counter()
+                logger.info(f"[TIMING] YOLO inference (quantized ONNX): ~{(t1_infer - t0_infer)/60:.2f} minutes ({t1_infer - t0_infer:.2f}s × 300 images)")
 
+                t0_post = time.perf_counter()
                 # Perform 3D clustering
                 logger.info("[CLUSTERING] Organizing detections...")
                 detections_by_tomo = organize_detections(all_yolo_results, image_paths)
                 logger.info(f"[CLUSTERING] Found {len(detections_by_tomo)} tomograms")
                 
                 logger.info("[CLUSTERING] Running DBSCAN clustering...")
+                t1_post = time.perf_counter()
+                logger.info(f"[TIMING] Post-processing and volume generation: ~{t1_post - t0_post:.2f} seconds")
+                t0_dbscan = t1_post
                 motors_3d = cluster_3d(detections_by_tomo)
+                t1_dbscan = time.perf_counter()
+                logger.info(f"[TIMING] 3D DBSCAN clustering: ~{t1_dbscan - t0_dbscan:.2f} seconds")
                 total_motors = sum(len(m) for m in motors_3d.values())
                 logger.info(f"[CLUSTERING] Detected {total_motors} flagellar motors")
 
@@ -639,6 +659,8 @@ async def detect(zip_file: UploadFile = File(...)):
                         logger.info(f"Processed volume file verified at: {processed_vol_path}")
                     
                     elapsed_ms = int((time.perf_counter() - proc_start) * 1000)
+                    t1_total = time.perf_counter()
+                    logger.info(f"[TIMING] Total end-to-end time: ~{(t1_total - t0_total)/60:.2f} minutes")
                     
                     # Get final 3D coordinates for each motor
                     motors_coordinates = {}
@@ -704,15 +726,21 @@ async def detect(zip_file: UploadFile = File(...)):
 @app.get("/download_volume/{filename}")
 async def download_volume(filename: str):
     """Download a processed .npy volume file"""
+    # Check in outputs directory first
     file_path = OUTPUT_DIR / filename
     
+    # If not found, check in root directory
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="Volume file not found")
+        root_dir = Path(__file__).parent.parent
+        file_path = root_dir / filename
+    
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail=f"Volume file not found: {filename}")
     
     if not file_path.suffix == '.npy':
         raise HTTPException(status_code=400, detail="Only .npy files can be downloaded")
     
-    logger.info(f"Serving volume file: {filename}")
+    logger.info(f"Serving volume file: {filename} from {file_path}")
     
     return FileResponse(
         path=str(file_path),

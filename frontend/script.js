@@ -71,7 +71,7 @@ window.switchTab = function switchTab(tabName) {
       console.warn('Failed to trigger VTK resize/render on tab switch:', e);
     }
 
-    if ((window.processedVolumeUrl || window.transparentVolumeUrl) && !window.volumesLoaded) {
+    if ((window.processedVolumeUrl || window.transparentVolumeUrl || window.groundTruthVolumeUrl) && !window.volumesLoaded) {
       // Show notification
       const notification = document.getElementById('autoLoadNotification');
       if (notification) {
@@ -83,7 +83,13 @@ window.switchTab = function switchTab(tabName) {
       setTimeout(() => {
         let loadedCount = 0;
         let failedCount = 0;
-        const totalToLoad = (window.processedVolumeUrl ? 1 : 0) + (window.transparentVolumeUrl ? 1 : 0);
+        const totalToLoad = (window.processedVolumeUrl ? 1 : 0) + (window.transparentVolumeUrl ? 1 : 0) + (window.groundTruthVolumeUrl ? 1 : 0);
+        
+        console.log('[AUTO-LOAD] Starting auto-load...');
+        console.log('[AUTO-LOAD] Total volumes to load:', totalToLoad);
+        console.log('[AUTO-LOAD] Processed URL:', window.processedVolumeUrl);
+        console.log('[AUTO-LOAD] Transparent URL:', window.transparentVolumeUrl);
+        console.log('[AUTO-LOAD] Ground Truth URL:', window.groundTruthVolumeUrl);
         
         if (window.processedVolumeUrl && typeof window.autoLoadFileIntoInput === 'function') {
           window.autoLoadFileIntoInput(window.processedVolumeUrl, 'fileInput', 'processed_volume.npy')
@@ -119,6 +125,25 @@ window.switchTab = function switchTab(tabName) {
               }
             });
         }
+        
+        // Ground truth auto-load (COMMENTED OUT)
+        // if (window.groundTruthVolumeUrl && typeof window.autoLoadFileIntoInput === 'function') {
+        //   window.autoLoadFileIntoInput(window.groundTruthVolumeUrl, 'groundTruthFile', 'ground_truth_volume.npy')
+        //     .then(() => {
+        //       loadedCount++;
+        //       console.log('✓ Ground truth volume loaded successfully');
+        //       if (loadedCount + failedCount === totalToLoad) {
+        //         showResultNotification();
+        //       }
+        //     })
+        //     .catch((error) => {
+        //       failedCount++;
+        //       console.error('✗ Failed to load ground truth volume:', error);
+        //       if (loadedCount + failedCount === totalToLoad) {
+        //         showResultNotification();
+        //       }
+        //     });
+        // }
         
         function showResultNotification() {
           const notification = document.getElementById('autoLoadNotification');
@@ -409,7 +434,7 @@ async function loadHistory() {
             <div class="stat-value">${record.total_motors}</div>
           </div>
           <div class="stat-box">
-            <div class="stat-label">Avg. Processing time</div>
+            <div class="stat-label">Total Processing time</div>
             <div class="stat-value">${record.avg_proc_time}</div>
           </div>
         </div>

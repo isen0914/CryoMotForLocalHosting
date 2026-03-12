@@ -1,0 +1,214 @@
+# ============================================================================
+# CELL 20: STEP 4: CALCULATE METRICS (F-BETA & EUCLIDEAN DISTANCE)
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("STEP 4: CALCULATING METRICS")
+print(f"{'='*80}")
+
+# # 🔥 FORCE CLEAR OLD DATA
+# all_predictions_for_map = []  # ← Make sure this starts fresh!
+
+# print(f"\n🔬 Starting fresh mAP calculation...")
+# print(f"   • predictions_3d has {sum(len(p) for p in predictions_3d.values())} total predictions")
+
+true_positives = 0
+false_positives = 0
+false_negatives = 0
+all_distances = []
+matched_predictions = {}  # Store which PREDICTIONS are CORRECT
+
+# ✅ NEW: BUILD list of all predictions for mAP calculation
+all_predictions_for_map = []
+
+for tomo_id in set(list(ground_truth.keys()) + list(predictions_3d.keys())):
+    gt = ground_truth.get(tomo_id, [])
+    pred = predictions_3d.get(tomo_id, [])
+
+    matched_gt = set()
+
+    for pred_idx, p in enumerate(pred):
+        min_dist = float('inf')
+        closest_gt_idx = None
+
+        # Find closest ground truth
+        for gt_idx, g in enumerate(gt):
+            dx = (p['x_norm'] - g['x_norm']) * 640
+            dy = (p['y_norm'] - g['y_norm']) * 640
+            dz = p['z'] - g['slice']
+            dist = np.sqrt(dx**2 + dy**2 + dz**2)
+
+            if dist < min_dist:
+                min_dist = dist
+                closest_gt_idx = gt_idx
+
+        # Check if match is within threshold
+        if min_dist <= DISTANCE_THRESHOLD_NM and closest_gt_idx not in matched_gt:
+            true_positives += 1
+            matched_gt.add(closest_gt_idx)
+            all_distances.append(min_dist)
+
+            # Store as correct prediction
+            if tomo_id not in matched_predictions:
+                matched_predictions[tomo_id] = {}
+            matched_predictions[tomo_id][pred_idx] = {'is_correct': True, 'distance': min_dist}
+
+            # ✅ Add to mAP list (correct prediction)
+            all_predictions_for_map.append({
+                'confidence': p['conf'],
+                'is_correct': True,
+                'distance': min_dist
+            })
+        else:
+            false_positives += 1
+
+            # Store as false positive
+            if tomo_id not in matched_predictions:
+                matched_predictions[tomo_id] = {}
+            matched_predictions[tomo_id][pred_idx] = {'is_correct': False, 'distance': min_dist}
+
+            # ✅ Add to mAP list (false positive)
+            all_predictions_for_map.append({
+                'confidence': p['conf'],
+                'is_correct': False,
+                'distance': min_dist
+            })
+
+    # Unmatched ground truths = false negatives
+    false_negatives += len(gt) - len(matched_gt)
+
+# Calculate metrics
+precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+
+# F-beta score with beta=2 (prioritizes recall)
+beta = 2
+f_beta = ((1 + beta**2) * precision * recall) / ((beta**2 * precision) + recall) if (precision + recall) > 0 else 0
+
+# Average Euclidean distance (only for correct matches)
+avg_euclidean = np.mean(all_distances) if all_distances else float('inf')
+
+# ============================================================================
+# CALCULATE mAP@0.5 (at 100nm threshold)
+# ============================================================================
+
+print(f"\n🔍 Calculating mAP@0.5 (at {DISTANCE_THRESHOLD_NM}nm threshold)...")
+
+# Sort all predictions by confidence (descending)
+all_predictions_for_map.sort(key=lambda x: x['confidence'], reverse=True)
+
+total_gt = sum(len(gt) for gt in ground_truth.values())
+
+if len(all_predictions_for_map) > 0 and total_gt > 0:
+    precisions = []
+    recalls = []
+    tp_cumsum = 0
+    fp_cumsum = 0
+
+    for i, pred_info in enumerate(all_predictions_for_map):
+        if pred_info['is_correct']:
+            tp_cumsum += 1
+        else:
+            fp_cumsum += 1
+
+        # Calculate precision and recall at this threshold
+        current_precision = tp_cumsum / (tp_cumsum + fp_cumsum) if (tp_cumsum + fp_cumsum) > 0 else 0
+        current_recall = tp_cumsum / total_gt if total_gt > 0 else 0
+
+        precisions.append(current_precision)
+        recalls.append(current_recall)
+
+    # Calculate AP using the 11-point interpolation method (standard for mAP@0.5)
+    ap_11point = 0
+    for recall_threshold in np.linspace(0, 1, 11):
+        # Find precisions at recalls >= recall_threshold
+        precisions_at_recall = [p for p, r in zip(precisions, recalls) if r >= recall_threshold]
+        if len(precisions_at_recall) > 0:
+            ap_11point += max(precisions_at_recall)
+    ap_11point /= 11
+
+    # Also calculate AP using AUC (alternative method)
+    # Add endpoints for proper AUC calculation
+    recalls_for_auc = [0] + recalls + [1]
+    precisions_for_auc = [precisions[0] if len(precisions) > 0 else 0] + precisions + [0]
+
+    # Use trapezoidal integration
+    try:
+        from sklearn.metrics import auc
+        ap_auc = auc(recalls_for_auc, precisions_for_auc)
+    except:
+        ap_auc = ap_11point  # Fallback to 11-point if AUC fails
+
+    # Use 11-point interpolation as primary (standard for COCO mAP@0.5)
+    map_50 = ap_11point
+
+    print(f"   ✅ mAP@0.5 calculated: {map_50:.4f}")
+    print(f"   • Method: 11-point interpolation (COCO standard)")
+    print(f"   • Alternative (AUC): {ap_auc:.4f}")
+    print(f"   • Based on {len(all_predictions_for_map)} predictions")
+    if len(precisions) > 0:
+        print(f"   • Precision range: {min(precisions):.4f} - {max(precisions):.4f}")
+        print(f"   • Recall range: {min(recalls):.4f} - {max(recalls):.4f}")
+else:
+    map_50 = 0.0
+    print(f"   ⚠️ No predictions or ground truth available for mAP calculation")
+
+print(f"\n✅ Metrics calculated!")
+
+# Display all calculated metrics
+print(f"\n{'='*80}")
+print("📊 FINAL METRICS SUMMARY")
+print(f"{'='*80}")
+
+print(f"\n🎯 Detection Performance:")
+print(f"   • True Positives:     {true_positives}")
+print(f"   • False Positives:    {false_positives}")
+print(f"   • False Negatives:    {false_negatives}")
+print(f"   • Ground Truth Total: {total_gt}")
+print(f"   • Predictions Total:  {true_positives + false_positives}")
+
+print(f"\n📈 Classification Metrics:")
+print(f"   • Precision:          {precision:.4f} ({precision*100:.2f}%)")
+print(f"   • Recall:             {recall:.4f} ({recall*100:.2f}%)")
+print(f"   • F-Beta Score (β=2): {f_beta:.4f} ({f_beta*100:.2f}%)")
+print(f"   • mAP@0.5:            {map_50:.4f} ({map_50*100:.2f}%)")
+
+print(f"\n🔍 Localization Accuracy:")
+print(f"   • Avg Euclidean Dist: {avg_euclidean:.2f} nm")
+if all_distances:
+    print(f"   • Min Distance:       {min(all_distances):.2f} nm")
+    print(f"   • Max Distance:       {max(all_distances):.2f} nm")
+    print(f"   • Median Distance:    {np.median(all_distances):.2f} nm")
+print(f"   • Threshold:          {DISTANCE_THRESHOLD_NM} nm")
+
+print(f"\n{'='*80}")
+print("🎯 MANUSCRIPT TARGET ACHIEVEMENT")
+print(f"{'='*80}")
+
+f2_met = f_beta >= TARGET_F2
+dist_met = avg_euclidean <= DISTANCE_THRESHOLD_NM
+
+print(f"\n1️⃣ F₂ Score ≥ {TARGET_F2}:")
+if f2_met:
+    print(f"   ✅ ACHIEVED: {f_beta:.4f} ≥ {TARGET_F2}")
+else:
+    print(f"   ❌ NOT MET: {f_beta:.4f} < {TARGET_F2}")
+    print(f"   📊 Gap: {(TARGET_F2 - f_beta)*100:.2f}%")
+
+print(f"\n2️⃣ Euclidean Distance ≤ {DISTANCE_THRESHOLD_NM} nm:")
+if dist_met:
+    print(f"   ✅ ACHIEVED: {avg_euclidean:.2f} nm ≤ {DISTANCE_THRESHOLD_NM} nm")
+else:
+    print(f"   ❌ NOT MET: {avg_euclidean:.2f} nm > {DISTANCE_THRESHOLD_NM} nm")
+    print(f"   📊 Excess: {(avg_euclidean - DISTANCE_THRESHOLD_NM):.2f} nm")
+
+print(f"\n{'='*80}")
+if f2_met and dist_met:
+    print("🎉 ALL MANUSCRIPT TARGETS ACHIEVED!")
+elif f2_met or dist_met:
+    print("⚠️ PARTIAL SUCCESS - SOME TARGETS MET")
+else:
+    print("⚠️ TARGETS NOT MET - REVIEW RESULTS ABOVE")
+print(f"{'='*80}")
+
+print(f"\n✅ Metrics calculated and displayed!")

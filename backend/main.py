@@ -12,7 +12,9 @@ import gc
 from pathlib import Path
 import time
 import uvicorn
-from sklearn.cluster import DBSCAN
+from scipy.sparse.csgraph import minimum_spanning_tree, connected_components
+from scipy.spatial.distance import pdist, squareform
+from scipy.sparse import csr_matrix
 from collections import defaultdict
 from skimage import io, transform, filters
 
@@ -63,12 +65,18 @@ else:
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.gif', '.tif', '.tiff'}
 
-# Clustering parameters
-CONF_THRESHOLD = 0.25
-DBSCAN_EPS = 50
-DBSCAN_MIN_SAMPLES = 3
-MIN_CLUSTER_SIZE = 3
-MIN_DISTANCE = 100
+# MST Clustering parameters
+CONF_THRESHOLD = 0.285
+MST_EDGE_THRESHOLD = 76.0
+MST_MIN_CLUSTER_SIZE = 2
+MST_CONNECTIVITY_METRIC = 'euclidean'
+MST_EDGE_PERCENTILE = 73.5
+MIN_DISTANCE = 104
+
+# F-beta calculation parameters
+DISTANCE_THRESHOLD_NM = 100  # Distance threshold in nanometers for matching predictions to ground truth
+NM_PER_PIXEL = 0.8  # Nanometers per pixel conversion factor
+FBETA_BETA = 2  # Beta value for F-beta score (2 prioritizes recall)
 
 def _evenly_spaced_indices(total: int, count: int) -> list[int]:
     if total <= 0:
@@ -107,7 +115,7 @@ def save_volume_previews(volume: np.ndarray, base: str, prefix: str, count: int 
     return urls
 
 def organize_detections(results, image_paths):
-    """Organize detections by tomogram ID"""
+    """Organize detections by tomogram ID with normalized coordinates and metadata"""
     detections_by_tomo = defaultdict(list)
     
     for r, img_path in zip(results, image_paths):
@@ -122,13 +130,27 @@ def organize_detections(results, image_paths):
                 slice_num = 0
             
             if hasattr(r, 'boxes') and len(r.boxes) > 0:
+                # Get original image dimensions
+                orig_shape = r.orig_shape  # (height, width)
+                img_h, img_w = orig_shape[0], orig_shape[1]
+                
                 for box in r.boxes:
                     xywh = box.xywh[0].cpu().numpy() if hasattr(box.xywh[0], 'cpu') else box.xywh[0]
+                    x_center = float(xywh[0])
+                    y_center = float(xywh[1])
+                    w = float(xywh[2])
+                    h = float(xywh[3])
+                    
                     det = {
-                        'x': float(xywh[0]),
-                        'y': float(xywh[1]),
+                        'x': x_center,
+                        'y': y_center,
                         'z': slice_num,
+                        'w': w,
+                        'h': h,
+                        'x_norm': x_center / img_w,
+                        'y_norm': y_center / img_h,
                         'conf': float(box.conf[0]),
+                        'image_path': str(img_path),
                     }
                     detections_by_tomo[tomo_id].append(det)
     
@@ -151,6 +173,154 @@ def filter_duplicates(motors, min_distance=MIN_DISTANCE):
         if not is_duplicate:
             filtered.append(motor)
     return filtered
+
+def calculate_fbeta_score(predictions_3d, ground_truth, tomo_id=None):
+    """
+    Calculate F-beta score, mAP@0.5, and Euclidean distance metrics.
+    Based on fbetaEuclideanCode.txt implementation.
+    
+    Args:
+        predictions_3d: Dictionary of predictions by tomo_id
+        ground_truth: Dictionary of ground truth annotations by tomo_id
+                     Each annotation should have: {'x_norm': float, 'y_norm': float, 'slice': int}
+        tomo_id: Optional specific tomogram ID to calculate for (None = all)
+    
+    Returns:
+        Dictionary with comprehensive metrics
+    """
+    true_positives = 0
+    false_positives = 0
+    false_negatives = 0
+    all_distances = []
+    matched_predictions = {}  # Track which predictions are correct
+    all_predictions_for_map = []  # For mAP calculation
+    
+    # Process single tomo or all tomos
+    tomo_ids = [tomo_id] if tomo_id else set(list(ground_truth.keys()) + list(predictions_3d.keys()))
+    
+    for tid in tomo_ids:
+        gt = ground_truth.get(tid, [])
+        pred = predictions_3d.get(tid, [])
+        
+        matched_gt = set()
+        
+        for pred_idx, p in enumerate(pred):
+            min_dist = float('inf')
+            closest_gt_idx = None
+            
+            # Find closest ground truth
+            for gt_idx, g in enumerate(gt):
+                dx = (p['x_norm'] - g['x_norm']) * 640
+                dy = (p['y_norm'] - g['y_norm']) * 640
+                dz = p['z'] - g['slice']
+                dist = np.sqrt(dx**2 + dy**2 + dz**2)
+                
+                if dist < min_dist:
+                    min_dist = dist
+                    closest_gt_idx = gt_idx
+            
+            # Check if match is within threshold
+            if min_dist <= DISTANCE_THRESHOLD_NM and closest_gt_idx not in matched_gt:
+                true_positives += 1
+                matched_gt.add(closest_gt_idx)
+                all_distances.append(min_dist)
+                
+                # Store as correct prediction
+                if tid not in matched_predictions:
+                    matched_predictions[tid] = {}
+                matched_predictions[tid][pred_idx] = {'is_correct': True, 'distance': min_dist}
+                
+                # Add to mAP list (correct prediction)
+                all_predictions_for_map.append({
+                    'confidence': p['conf'],
+                    'is_correct': True,
+                    'distance': min_dist
+                })
+            else:
+                false_positives += 1
+                
+                # Store as false positive
+                if tid not in matched_predictions:
+                    matched_predictions[tid] = {}
+                matched_predictions[tid][pred_idx] = {'is_correct': False, 'distance': min_dist}
+                
+                # Add to mAP list (false positive)
+                all_predictions_for_map.append({
+                    'confidence': p['conf'],
+                    'is_correct': False,
+                    'distance': min_dist
+                })
+        
+        # Unmatched ground truths = false negatives
+        false_negatives += len(gt) - len(matched_gt)
+    
+    # Calculate metrics
+    precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
+    recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
+    
+    # F-beta score with beta=2 (prioritizes recall)
+    beta = FBETA_BETA
+    f_beta = ((1 + beta**2) * precision * recall) / ((beta**2 * precision) + recall) if (precision + recall) > 0 else 0
+    
+    # Average Euclidean distance (only for correct matches)
+    avg_euclidean = np.mean(all_distances) if all_distances else float('inf')
+    
+    # ============================================================================
+    # CALCULATE mAP@0.5 (at 100nm threshold)
+    # ============================================================================
+    total_gt = sum(len(gt) for gt in ground_truth.values())
+    map_50 = 0.0
+    
+    if len(all_predictions_for_map) > 0 and total_gt > 0:
+        # Sort all predictions by confidence (descending)
+        all_predictions_for_map.sort(key=lambda x: x['confidence'], reverse=True)
+        
+        precisions = []
+        recalls = []
+        tp_cumsum = 0
+        fp_cumsum = 0
+        
+        for i, pred_info in enumerate(all_predictions_for_map):
+            if pred_info['is_correct']:
+                tp_cumsum += 1
+            else:
+                fp_cumsum += 1
+            
+            # Calculate precision and recall at this threshold
+            current_precision = tp_cumsum / (tp_cumsum + fp_cumsum) if (tp_cumsum + fp_cumsum) > 0 else 0
+            current_recall = tp_cumsum / total_gt if total_gt > 0 else 0
+            
+            precisions.append(current_precision)
+            recalls.append(current_recall)
+        
+        # Calculate AP using 11-point interpolation (COCO standard for mAP@0.5)
+        ap_11point = 0
+        for recall_threshold in np.linspace(0, 1, 11):
+            # Find precisions at recalls >= recall_threshold
+            precisions_at_recall = [p for p, r in zip(precisions, recalls) if r >= recall_threshold]
+            if len(precisions_at_recall) > 0:
+                ap_11point += max(precisions_at_recall)
+        ap_11point /= 11
+        
+        map_50 = ap_11point
+    
+    return {
+        'true_positives': true_positives,
+        'false_positives': false_positives,
+        'false_negatives': false_negatives,
+        'total_ground_truth': total_gt,
+        'total_predictions': true_positives + false_positives,
+        'precision': precision,
+        'recall': recall,
+        'f_beta': f_beta,
+        'map_50': map_50,
+        'avg_euclidean_nm': avg_euclidean,
+        'min_distance_nm': min(all_distances) if all_distances else float('inf'),
+        'max_distance_nm': max(all_distances) if all_distances else float('inf'),
+        'median_distance_nm': float(np.median(all_distances)) if all_distances else float('inf'),
+        'all_distances_nm': all_distances,
+        'matched_predictions': matched_predictions
+    }
 
 def load_and_preprocess_images(image_paths, target_size=(250, 250)):
     """
@@ -216,39 +386,123 @@ def process_volume_with_masking(volume, threshold_method='otsu', manual_threshol
     return vol_masked
 
 def cluster_3d(detections_by_tomo):
-    """Apply DBSCAN clustering to group 3D detections"""
+    """Apply MST (Minimum Spanning Tree) clustering to group 3D detections"""
     predictions_3d = {}
     
+    # First filter by confidence threshold
+    detections_by_tomo_filtered = {}
+    total_before = sum(len(d) for d in detections_by_tomo.values())
+    total_after = 0
+    
     for tomo_id, detections in detections_by_tomo.items():
-        if len(detections) < DBSCAN_MIN_SAMPLES:
+        filtered = [d for d in detections if d['conf'] >= CONF_THRESHOLD]
+        if len(filtered) > 0:
+            detections_by_tomo_filtered[tomo_id] = filtered
+            total_after += len(filtered)
+    
+    logger.info(f"[MST] Filtered detections: {total_before} -> {total_after} (≥{CONF_THRESHOLD} confidence)")
+    
+    # Apply MST clustering
+    for tomo_id, detections in detections_by_tomo_filtered.items():
+        if len(detections) < MST_MIN_CLUSTER_SIZE:
             predictions_3d[tomo_id] = [{
-                'x_pixel': d['x'], 'y_pixel': d['y'], 'z': d['z'],
-                'conf': d['conf'], 'cluster_size': 1
+                'x_pixel': d['x'],
+                'y_pixel': d['y'],
+                'z': d['z'],
+                'x_norm': d['x_norm'],
+                'y_norm': d['y_norm'],
+                'conf': d['conf'],
+                'cluster_size': 1,
+                'rep_image': d['image_path'],
+                'rep_slice': d['z']
             } for d in detections]
             continue
         
+        # Prepare data in PIXEL SPACE
         points = np.array([[d['x'], d['y'], d['z']] for d in detections])
-        clustering = DBSCAN(eps=DBSCAN_EPS, min_samples=DBSCAN_MIN_SAMPLES)
-        labels = clustering.fit_predict(points)
         
-        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        # Compute distance matrix
+        if MST_CONNECTIVITY_METRIC == 'euclidean':
+            dist_matrix = squareform(pdist(points, metric='euclidean'))
+        elif MST_CONNECTIVITY_METRIC == 'manhattan':
+            dist_matrix = squareform(pdist(points, metric='cityblock'))
+        elif MST_CONNECTIVITY_METRIC == 'chebyshev':
+            dist_matrix = squareform(pdist(points, metric='chebyshev'))
+        else:
+            dist_matrix = squareform(pdist(points, metric='euclidean'))
+        
+        # Build Minimum Spanning Tree
+        mst = minimum_spanning_tree(dist_matrix)
+        mst_array = mst.toarray()
+        
+        # Extract edges from MST
+        edges = []
+        for i in range(len(points)):
+            for j in range(i + 1, len(points)):
+                if mst_array[i, j] > 0:
+                    edges.append((i, j, mst_array[i, j]))
+                elif mst_array[j, i] > 0:
+                    edges.append((i, j, mst_array[j, i]))
+        
+        # Calculate edge threshold (adaptive or fixed)
+        edge_weights = [e[2] for e in edges]
+        
+        if MST_EDGE_PERCENTILE > 0 and len(edge_weights) > 0:
+            # Use percentile-based threshold (adaptive)
+            adaptive_threshold = np.percentile(edge_weights, MST_EDGE_PERCENTILE)
+            final_threshold = min(adaptive_threshold, MST_EDGE_THRESHOLD)
+        else:
+            # Use fixed threshold
+            final_threshold = MST_EDGE_THRESHOLD
+        
+        # Cut edges above threshold to form clusters
+        adjacency = np.zeros_like(dist_matrix)
+        for i, j, weight in edges:
+            if weight <= final_threshold:
+                adjacency[i, j] = 1
+                adjacency[j, i] = 1
+        
+        # Find connected components
+        n_components, labels = connected_components(
+            csgraph=csr_matrix(adjacency),
+            directed=False,
+            return_labels=True
+        )
         
         motors = []
-        for cid in range(n_clusters):
-            mask = (labels == cid)
+        for comp_id in range(n_components):
+            mask = (labels == comp_id)
             cluster_dets = [d for d, m in zip(detections, mask) if m]
             
-            if len(cluster_dets) < MIN_CLUSTER_SIZE:
+            if len(cluster_dets) < MST_MIN_CLUSTER_SIZE:
                 continue
             
+            # Compute centroid
+            x_norm = np.mean([d['x_norm'] for d in cluster_dets])
+            y_norm = np.mean([d['y_norm'] for d in cluster_dets])
+            z_avg = np.mean([d['z'] for d in cluster_dets])
+            x_pixel = np.mean([d['x'] for d in cluster_dets])
+            y_pixel = np.mean([d['y'] for d in cluster_dets])
+            
+            # Find representative detection (closest to z_avg)
+            distances = [abs(d['z'] - z_avg) for d in cluster_dets]
+            rep_idx = np.argmin(distances)
+            rep_det = cluster_dets[rep_idx]
+            
             motors.append({
-                'x_pixel': float(np.mean([d['x'] for d in cluster_dets])),
-                'y_pixel': float(np.mean([d['y'] for d in cluster_dets])),
-                'z': float(np.mean([d['z'] for d in cluster_dets])),
-                'conf': float(np.mean([d['conf'] for d in cluster_dets])),
-                'cluster_size': len(cluster_dets)
+                'x_norm': x_norm,
+                'y_norm': y_norm,
+                'z': z_avg,
+                'x_pixel': x_pixel,
+                'y_pixel': y_pixel,
+                'cluster_size': len(cluster_dets),
+                'conf': np.mean([d['conf'] for d in cluster_dets]),
+                'rep_image': rep_det['image_path'],
+                'rep_bbox': (rep_det['x'], rep_det['y'], rep_det['w'], rep_det['h']),
+                'rep_slice': rep_det['z']
             })
         
+        # Distance filtering
         predictions_3d[tomo_id] = filter_duplicates(motors)
     
     return predictions_3d
@@ -358,9 +612,16 @@ async def detect(zip_file: UploadFile = File(...)):
 
                 # Prepare 3D volume for transparent PNGs (250x250) - RGBA format
                 transparent_volume = np.zeros((depth, 250, 250, 4), dtype=np.uint8)
-
+                
                 # --- Inference timing fix ---
                 inference_start = time.perf_counter()
+                # ground_truth_volume and ground_truth are commented out for now
+                # ground_truth_volume = np.zeros((depth, 250, 250, 4), dtype=np.uint8)
+                # ground_truth = {
+                #     'tomo_7fbc49': [
+                #         {'x_norm': 248/640, 'y_norm': 371/640, 'slice': 0}
+                #     ]
+                # }
 
                 for idx, img in enumerate(image_paths):
                     current_annotated_url = None
@@ -435,7 +696,7 @@ async def detect(zip_file: UploadFile = File(...)):
 
                                     draw.rectangle(
                                         [tx1, ty1, tx2, ty2],
-                                        outline=(255, 227, 179, 255),
+                                        outline=(0, 0, 255, 255),  # BLUE for motor detections
                                         width=1,
                                     )
                                 
@@ -506,7 +767,7 @@ async def detect(zip_file: UploadFile = File(...)):
 
                             # Draw boxes only (no center markers)
                             for (x1, y1, x2, y2) in scaled_boxes:
-                                draw_slice.rectangle([x1, y1, x2, y2], outline=(255, 227, 179, 255), width=2)
+                                draw_slice.rectangle([x1, y1, x2, y2], outline=(255, 0, 0, 255), width=2)
 
                             slice_name = f"{img.stem}_slice_{idx:03d}.png"
                             slice_path = OUTPUT_DIR / slice_name
@@ -569,15 +830,38 @@ async def detect(zip_file: UploadFile = File(...)):
                 detections_by_tomo = organize_detections(all_yolo_results, image_paths)
                 logger.info(f"[CLUSTERING] Found {len(detections_by_tomo)} tomograms")
                 
-                logger.info("[CLUSTERING] Running DBSCAN clustering...")
+                logger.info("[CLUSTERING] Running MST clustering...")
                 t1_post = time.perf_counter()
                 logger.info(f"[TIMING] Post-processing and volume generation: ~{t1_post - t0_post:.2f} seconds")
                 t0_dbscan = t1_post
                 motors_3d = cluster_3d(detections_by_tomo)
                 t1_dbscan = time.perf_counter()
-                logger.info(f"[TIMING] 3D DBSCAN clustering: ~{t1_dbscan - t0_dbscan:.2f} seconds")
+                logger.info(f"[TIMING] 3D MST clustering: ~{t1_dbscan - t0_dbscan:.2f} seconds")
                 total_motors = sum(len(m) for m in motors_3d.values())
                 logger.info(f"[CLUSTERING] Detected {total_motors} flagellar motors")
+                
+                # Log motor counts per tomogram
+                for tomo_id, motors in motors_3d.items():
+                    logger.info(f"[CLUSTERING] {tomo_id}: {len(motors)} motors detected")
+                
+                # --- Ground truth visualization and volume creation is commented out for now ---
+                # try:
+                #     logger.info("[GROUND TRUTH] Creating ground truth visualization volume...")
+                #     ...existing code...
+                #     logger.info("[GROUND TRUTH] Ground truth volume created")
+                # except Exception as e:
+                #     logger.exception(f"[GROUND TRUTH] Error creating ground truth volume: {e}")
+                
+                # --- F-beta score and Euclidean distance calculation/output is commented out for now ---
+                # try:
+                #     if ground_truth:
+                #         logger.info(f"\n{'='*80}")
+                #         logger.info("[F-BETA] CALCULATING METRICS")
+                #         logger.info(f"{'='*80}")
+                #         ...existing code...
+                #         logger.info(f"\n{'='*80}\n")
+                # except Exception as e:
+                #     logger.exception(f"[F-BETA] Error calculating F-beta scores: {e}")
 
                 # Keep only one representative slice per clustered motor in the 3D transparent volume.
                 # This avoids showing the object across all slices where it was detected.
@@ -636,11 +920,17 @@ async def detect(zip_file: UploadFile = File(...)):
                     vol_path = OUTPUT_DIR / vol_name
                     np.save(str(vol_path), volume)
                     
-                    # Save transparent 3D volume (RGBA - shows motor locations)
+                    # Save transparent 3D volume (RGBA - shows motor locations in BLUE)
                     transparent_vol_name = f"{base}_transparent_volume.npy"
                     transparent_vol_path = OUTPUT_DIR / transparent_vol_name
                     np.save(str(transparent_vol_path), transparent_volume)
                     logger.info(f"Saved transparent 3D volume: {transparent_vol_name} with shape {transparent_volume.shape}")
+                    
+                    # Save ground truth volume (commented out for now)
+                    # ground_truth_vol_name = f"{base}_ground_truth_volume.npy"
+                    # ground_truth_vol_path = OUTPUT_DIR / ground_truth_vol_name
+                    # np.save(str(ground_truth_vol_path), ground_truth_volume)
+                    # logger.info(f"Saved ground truth 3D volume: {ground_truth_vol_name} with shape {ground_truth_volume.shape}")
                     
                     # Processed volume was already saved during preprocessing step
                     # Just verify it exists
@@ -679,6 +969,7 @@ async def detect(zip_file: UploadFile = File(...)):
                         "results": results,
                         "volume_url": f"/outputs/{vol_name}",
                         "transparent_volume_url": f"/outputs/{transparent_vol_name}",
+                        # "ground_truth_volume_url": f"/outputs/{ground_truth_vol_name}",
                         "processed_volume_url": f"/outputs/{processed_vol_name}",
                         "elapsed_ms": elapsed_ms,
                         "inference_time": round(inference_time, 3),
@@ -711,7 +1002,8 @@ async def detect(zip_file: UploadFile = File(...)):
                         "inference_time": round(inference_time, 3) if 'inference_time' in locals() else None,
                         "total_motors": total_motors,
                         "motors_by_tomo": {k: len(v) for k, v in motors_3d.items()},
-                        "motors_coordinates": motors_coordinates
+                        "motors_coordinates": motors_coordinates,
+                        # "ground_truth_volume_url": f"/outputs/{base}_ground_truth_volume.npy" if 'ground_truth_volume' in locals() else None
                     }
                     yield (json.dumps(final) + "\n").encode('utf-8')
         except Exception as e:

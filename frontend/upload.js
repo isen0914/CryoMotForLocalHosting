@@ -627,7 +627,7 @@ async function uploadToBackend() {
         updatePipelineStage(4, 'completed', `${resultsTime}s`);
 
         // Auto-load 3D volumes in the background (do NOT switch tabs)
-        if (window.processedVolumeUrl || window.transparentVolumeUrl) {
+        if (window.processedVolumeUrl || window.transparentVolumeUrl || window.groundTruthVolumeUrl) {
             console.log('Processing complete! Auto-loading 3D volumes (no tab switch)...');
 
             // Fire-and-forget: fetch volumes and populate the 3D inputs without forcing navigation
@@ -639,6 +639,9 @@ async function uploadToBackend() {
                     }
                     if (window.transparentVolumeUrl && typeof window.autoLoadFileIntoInput === 'function') {
                         tasks.push(window.autoLoadFileIntoInput(window.transparentVolumeUrl, 'motorsFile', 'transparent_volume.npy'));
+                    }
+                    if (window.groundTruthVolumeUrl && typeof window.autoLoadFileIntoInput === 'function') {
+                        tasks.push(window.autoLoadFileIntoInput(window.groundTruthVolumeUrl, 'groundTruthFile', 'ground_truth_volume.npy'));
                     }
                     if (tasks.length) {
                         await Promise.allSettled(tasks);
@@ -798,6 +801,7 @@ function handleBackendResponse(data) {
         // For post-processing panel: show slice overlays (these are always visible even when transparent overlays are empty)
         if (data.slice_url) {
             postprocessingSliceUrls.push(data.slice_url);
+            renderPostprocessingPanel(); // Render immediately as slices are generated
         }
     }
 
@@ -879,6 +883,19 @@ function handleBackendResponse(data) {
                     window.open(volumeUrl, '_blank');
                 };
             }
+        }
+        
+        // Handle ground truth volume URL (red boxes)
+        if (data.ground_truth_volume_url) {
+            const groundTruthUrl = BACKEND_URL + data.ground_truth_volume_url;
+            
+            // Store globally for auto-loading when user switches to 3D tab
+            window.groundTruthVolumeUrl = groundTruthUrl;
+            window.volumesLoaded = false; // Reset flag when new results come in
+            
+            console.log('✓ Ground truth volume URL stored:', groundTruthUrl);
+        } else {
+            console.warn('⚠ No ground_truth_volume_url in response data');
         }
         
         // Handle processed volume URL (with masking - bacteria volume)

@@ -12,6 +12,23 @@
     <script src="nav.js"></script>
     
     <link rel="stylesheet" href="styles.css?v=7" />
+    
+    <!-- Splash Screen Script -->
+    <script>
+      window.addEventListener('DOMContentLoaded', () => {
+        const splashScreen = document.getElementById('splashScreen');
+        
+        // Hide splash screen after 3 seconds
+        setTimeout(() => {
+          splashScreen.classList.add('fade-out');
+          
+          // Remove from DOM after fade-out animation completes
+          setTimeout(() => {
+            splashScreen.style.display = 'none';
+          }, 500);
+        }, 3000);
+      });
+    </script>
     <style>
       /* quick embedded styles for vtk container to ensure it fills area cleanly */
       #vtkContainer { position: relative; height: 80vh; width: 100%; background: #111; overflow: hidden; }
@@ -26,6 +43,22 @@
     </style>
   </head>
   <body>
+    <!-- Splash Screen -->
+    <div id="splashScreen" class="splash-screen">
+      <div class="splash-content">
+        <div class="splash-logo-container">
+          <img src="logo.png" alt="CRYOMOT" class="splash-logo" />
+        </div>
+        <div class="splash-title">CRYOMOT</div>
+        <div class="splash-subtitle">3D Microscopy Analysis</div>
+        <div class="loader">
+          <div class="loader-dot"></div>
+          <div class="loader-dot"></div>
+          <div class="loader-dot"></div>
+        </div>
+      </div>
+    </div>
+
     <header>
       <div class="logo"><img src="logo.png" alt="CRYOMOT"></div>
       <button class="hamburger-menu" onclick="toggleMobileNav()">
@@ -407,13 +440,24 @@
             <hr style="margin:8px 0;" />
 
             <!-- Motors -->
-            <label style="font-size:12px;">Motor data (.npy - coordinates or volume)</label>
+            <label style="font-size:12px;">Motor data (.npy - coordinates or volume) ✓ Auto-loaded</label>
             <input id="motorsFile" type="file" accept=".npy" style="width:100%; margin-top:4px;" />
 
             <div style="margin-top:6px;">
               <input id="motorsUrl" type="text" placeholder="relative/path/to/data.npy" style="width:100%; margin-top:4px;" />
               <button id="loadMotorsUrl" style="margin-top:6px;">Load Data</button>
             </div>
+            
+            <hr style="margin:8px 0;" />
+
+            <!-- Ground Truth (COMMENTED OUT) -->
+            <!-- <label style="font-size:12px;">Ground Truth data (.npy - ground truth volume) ✓ Auto-loaded</label>
+            <input id="groundTruthFile" type="file" accept=".npy" style="width:100%; margin-top:4px;" />
+
+            <div style="margin-top:6px;">
+              <input id="groundTruthUrl" type="text" placeholder="relative/path/to/ground_truth.npy" style="width:100%; margin-top:4px;" />
+              <button id="loadGroundTruthUrl" style="margin-top:6px;">Load Ground Truth</button>
+            </div> -->
 
             <!-- Sample Distance -->
             <div style="margin-top:8px;">
@@ -424,7 +468,9 @@
             <!-- Toggles -->
             <div style="margin-top:8px;">
               <input id="showVolume" type="checkbox" checked /><label for="showVolume"> Show Volume</label><br />
-              <input id="showMotors" type="checkbox" checked /><label for="showMotors"> Show Motors</label>
+              <input id="showMotors" type="checkbox" checked /><label for="showMotors"> Show Motors</label><br />
+              <!-- Ground Truth Toggle (COMMENTED OUT) -->
+              <!-- <input id="showGroundTruth" type="checkbox" checked /><label for="showGroundTruth"> Show Ground Truth</label> -->
             </div>
 
             <div style="font-size:11px; margin-top:8px;">
@@ -731,15 +777,21 @@
             <text x="700" y="192" text-anchor="middle" style="fill: white; font-size: 22px; font-weight: bold; font-family: Arial;">📊 SYSTEM INFORMATION</text>
             
             <!-- System name and version -->
-            <text x="150" y="250" class="about-text" font-size="18" font-weight="bold">System Name:</text>
-            <text x="320" y="250" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
+            <text x="150" y="240" class="about-text" font-size="18" font-weight="bold">System Name:</text>
+            <text x="320" y="240" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
             
-            <text x="150" y="285" class="about-text" font-size="18" font-weight="bold">Version:</text>
-            <text x="320" y="285" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
+            <text x="150" y="270" class="about-text" font-size="18" font-weight="bold">Version:</text>
+            <text x="320" y="270" class="about-text" font-size="18" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
             
-            <text x="150" y="320" class="about-text" font-size="18" font-weight="bold">Description:</text>
-            <text x="320" y="320" class="about-text" font-size="15" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
+            <text x="150" y="305" class="about-text" font-size="18" font-weight="bold">Description:</text>
+            <text x="320" y="305" class="about-text" font-size="15" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
             
+            <text x="150" y="330" class="about-text" font-size="18" font-weight="bold">Developers:</text>
+            <text x="320" y="330" class="about-text" font-size="15" fill="#555">Aisen Jover De Vera, Jay-r Guillao, Joana Marie Halog, Febelyn Aquino, John Paul De Vera, Liezel Ann Navarro, Cluie Ann Soriano</text>
+            
+            <text x="150" y="355" class="about-text" font-size="18" font-weight="bold">Adviser:</text>
+            <text x="320" y="355" class="about-text" font-size="15" fill="#555">Maria Jeseca Baculo, PhDCS</text>
+
             <!-- Tech Stack Section -->
             <rect x="100" y="400" width="580" height="480" rx="15" class="about-card"/>
             <rect x="100" y="400" width="580" height="50" rx="15" fill="#2d7a6e"/>
@@ -882,68 +934,75 @@
             <text x="400" y="80" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-family: Arial; font-size: 18px; font-weight: 600;">About Our System</text>
             
             <!-- System Info Card -->
-            <rect x="50" y="130" width="700" height="165" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="130" width="700" height="185" rx="12" class="about-card-mobile"/>
             <rect x="50" y="130" width="700" height="45" rx="12" fill="#2d7a6e"/>
             <text x="400" y="160" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">📊 SYSTEM INFORMATION</text>
             
-            <text x="80" y="210" class="about-text-mobile" font-size="16" font-weight="bold">System Name:</text>
-            <text x="240" y="210" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
+            <text x="80" y="205" class="about-text-mobile" font-size="16" font-weight="bold">System Name:</text>
+            <text x="240" y="205" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">CRYOMOT</text>
             
-            <text x="80" y="240" class="about-text-mobile" font-size="16" font-weight="bold">Version:</text>
-            <text x="240" y="240" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
+            <text x="80" y="235" class="about-text-mobile" font-size="16" font-weight="bold">Version:</text>
+            <text x="240" y="235" class="about-text-mobile" font-size="16" fill="#2d7a6e" font-weight="bold">1.0 (January 2026)</text>
             
-            <text x="80" y="270" class="about-text-mobile" font-size="15" font-weight="bold">Description:</text>
-            <text x="240" y="270" class="about-text-mobile" font-size="12" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
+            <text x="80" y="255" class="about-text-mobile" font-size="15" font-weight="bold">Description:</text>
+            <text x="240" y="255" class="about-text-mobile" font-size="12" fill="#555">A Deep Learning-Based Detection System for Bacterial Flagellar Motors</text>
             
+            <text x="80" y="270" class="about-text-mobile" font-size="14" font-weight="bold">Developers:</text>
+            <text x="240" y="270" class="about-text-mobile" font-size="11" fill="#555">Aisen Jover De Vera, Jay-r Guillao, Joana Marie Halog, Febelyn Aquino, John Paul De Vera,</text>
+            <text x="240" y="285" class="about-text-mobile" font-size="11" fill="#555">Liezel Ann Navarro, Cluie Ann Soriano</text>
+
+            <text x="80" y="300" class="about-text-mobile" font-size="14" font-weight="bold">Adviser:</text>
+            <text x="240" y="300" class="about-text-mobile" font-size="11" fill="#555">Maria Jeseca Baculo, PhDCS</text>
+
             <!-- Backend Section -->
-            <rect x="50" y="320" width="700" height="465" rx="12" class="about-card-mobile"/>
-            <rect x="50" y="320" width="700" height="45" rx="12" fill="#2d7a6e"/>
-            <text x="400" y="350" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">🛠️ BACKEND TECHNOLOGIES</text>
+            <rect x="50" y="340" width="700" height="465" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="340" width="700" height="45" rx="12" fill="#2d7a6e"/>
+            <text x="400" y="370" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">🛠️ BACKEND TECHNOLOGIES</text>
             
             <!-- Backend tools -->
-            <g transform="translate(80, 385)">
+            <g transform="translate(80, 405)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🐍</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Python</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Core programming language</text>
             </g>
             
-            <g transform="translate(80, 445)">
+            <g transform="translate(80, 465)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚡</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">FastAPI</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Modern web framework</text>
             </g>
             
-            <g transform="translate(80, 505)">
+            <g transform="translate(80, 525)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🦄</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Uvicorn</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">ASGI server</text>
             </g>
             
-            <g transform="translate(80, 565)">
+            <g transform="translate(80, 585)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🔥</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">PyTorch</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Deep learning framework</text>
             </g>
             
-            <g transform="translate(80, 625)">
+            <g transform="translate(80, 645)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎯</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Ultralytics YOLO</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Object detection model</text>
             </g>
             
-            <g transform="translate(80, 685)">
+            <g transform="translate(80, 705)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🖼️</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Pillow & Scikit-Image</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Image processing libraries</text>
             </g>
             
-            <g transform="translate(80, 745)">
+            <g transform="translate(80, 765)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚙️</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">ONNX Runtime</text>
@@ -951,54 +1010,54 @@
             </g>
             
             <!-- Frontend Section -->
-            <rect x="50" y="810" width="700" height="465" rx="12" class="about-card-mobile"/>
-            <rect x="50" y="810" width="700" height="45" rx="12" fill="#2d7a6e"/>
-            <text x="400" y="840" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">💻 FRONTEND TECHNOLOGIES</text>
+            <rect x="50" y="830" width="700" height="465" rx="12" class="about-card-mobile"/>
+            <rect x="50" y="830" width="700" height="45" rx="12" fill="#2d7a6e"/>
+            <text x="400" y="860" text-anchor="middle" style="fill: white; font-size: 18px; font-weight: bold; font-family: Arial;">💻 FRONTEND TECHNOLOGIES</text>
             
             <!-- Frontend tools -->
-            <g transform="translate(80, 875)">
+            <g transform="translate(80, 895)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📄</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">HTML5</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Markup structure</text>
             </g>
             
-            <g transform="translate(80, 935)">
+            <g transform="translate(80, 955)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎨</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">CSS3</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Styling & responsive design</text>
             </g>
             
-            <g transform="translate(80, 995)">
+            <g transform="translate(80, 1015)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">⚡</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">JavaScript</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Client-side interactivity</text>
             </g>
             
-            <g transform="translate(80, 1055)">
+            <g transform="translate(80, 1075)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🧊</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">VTK.js</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">3D visualization toolkit</text>
             </g>
             
-            <g transform="translate(80, 1115)">
+            <g transform="translate(80, 1135)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📊</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">NumPy.js</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Numerical computing</text>
             </g>
             
-            <g transform="translate(80, 1175)">
+            <g transform="translate(80, 1195)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">🎭</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">SVG Graphics</text>
               <text x="45" y="22" class="about-text-mobile" font-size="12" fill="#666">Vector graphics & diagrams</text>
             </g>
             
-            <g transform="translate(80, 1235)">
+            <g transform="translate(80, 1255)">
               <circle cx="18" cy="0" r="14" fill="url(#aboutGradMobile)"/>
               <text x="18" y="5" text-anchor="middle" style="fill: white; font-size: 14px; font-weight: bold;">📱</text>
               <text x="45" y="5" class="about-text-mobile" font-size="15" font-weight="bold">Responsive Design</text>
@@ -1006,11 +1065,11 @@
             </g>
             
             <!-- Footer -->
-            <rect x="0" y="1305" width="800" height="125" fill="#2d7a6e"/>
-            <text x="400" y="1350" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
-            <text x="400" y="1380" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
-            <text x="400" y="1400" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
-            <text x="400" y="1420" text-anchor="middle" style="fill: rgba(255,255,255,0.8); font-size: 12px; font-family: Arial;">© 2026 CRYOMOT</text>
+            <rect x="0" y="1325" width="800" height="125" fill="#2d7a6e"/>
+            <text x="400" y="1370" text-anchor="middle" style="fill: white; font-size: 24px; font-weight: bold; font-family: Arial;">CRYOMOT</text>
+            <text x="400" y="1400" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">A Deep Learning-Based Detection Of Bacterial Flagellar Motor</text>
+            <text x="400" y="1420" text-anchor="middle" style="fill: rgba(255,255,255,0.95); font-size: 13px; font-family: Arial;">in 3D Microscopy Reconstructions</text>
+            <text x="400" y="1440" text-anchor="middle" style="fill: rgba(255,255,255,0.8); font-size: 12px; font-family: Arial;">© 2026 CRYOMOT</text>
           </svg>
         </div>
       </section>
@@ -1526,6 +1585,7 @@
     let fullScreenRenderer = null;
     let currentVolumeActor = null;
     let currentMotorActor = null;
+    let currentGroundTruthActor = null;
     let renderer = null;
     let renderWindow = null;
     let mapper = null;
@@ -1756,6 +1816,7 @@
       fullScreenRenderer = null;
       currentVolumeActor = null;
       currentMotorActor = null;
+      currentGroundTruthActor = null;
     }
 
     function renderImage(imageData) {
@@ -1924,9 +1985,68 @@
       document.getElementById('viewerOverlayMessage').textContent += ' + Motors overlay';
     }
 
+    // Render ground truth as ARGB volume overlay (separate from motors)
+    function renderGroundTruth(gtImageData) {
+      if (!renderWindow || !renderer) {
+        console.warn('Render window not ready yet.');
+        return;
+      }
+
+      // Remove old ground truth actor if exists
+      if (currentGroundTruthActor) {
+        renderer.removeVolume(currentGroundTruthActor);
+      }
+
+      // Create a volume mapper for the ground truth
+      const gtMapper = vtk.Rendering.Core.vtkVolumeMapper.newInstance();
+      const sd = parseFloat(document.getElementById('sampleDist').value) || 1.0;
+      gtMapper.setSampleDistance(sd);
+      gtMapper.setInputData(gtImageData);
+
+      const gtActor = vtk.Rendering.Core.vtkVolume.newInstance();
+      gtActor.setMapper(gtMapper);
+
+      // For ARGB ground truth: setup to use per-voxel colors
+      const scalars = gtImageData.getPointData().getScalars();
+      const comps = scalars.getNumberOfComponents();
+      
+      if (comps === 4) {
+        // ARGB/RGBA volume - use independent components mode
+        gtActor.getProperty().setIndependentComponents(false);
+        
+        // Create transfer functions for RGBA
+        const ctfun = vtk.Rendering.Core.vtkColorTransferFunction.newInstance();
+        const ofun = vtk.Common.DataModel.vtkPiecewiseFunction.newInstance();
+        
+        // Get range from alpha channel
+        const range = scalars.getRange(0);
+        const min = range[0], max = range[1];
+        
+        // Map values to colors
+        ctfun.addRGBPoint(0, 0, 0, 0);
+        ctfun.addRGBPoint(255, 1, 1, 1);
+        
+        // Use alpha channel for opacity
+        ofun.addPoint(0, 0.0);
+        ofun.addPoint(1, 1.0);
+        ofun.addPoint(255, 1.0);
+        
+        gtActor.getProperty().setRGBTransferFunction(0, ctfun);
+        gtActor.getProperty().setScalarOpacity(0, ofun);
+        gtActor.getProperty().setInterpolationTypeToLinear();
+      }
+
+      renderer.addVolume(gtActor);
+      currentGroundTruthActor = gtActor;
+      renderWindow.render();
+      
+      document.getElementById('viewerOverlayMessage').textContent += ' + Ground Truth overlay';
+    }
+
     // Read file input and load
     let lastParsedVolume = null;
     let lastParsedMotors = null;
+    let lastParsedGroundTruth = null;
 
     document.getElementById('fileInput').addEventListener('change', (ev)=>{
       const file = ev.target.files[0];
@@ -1941,6 +2061,10 @@
           if (lastParsedMotors) {
             const motorImageData = vtkImageFromNpy(lastParsedMotors);
             renderMotors(motorImageData);
+          }
+          if (lastParsedGroundTruth) {
+            const gtImageData = vtkImageFromNpy(lastParsedGroundTruth);
+            renderGroundTruth(gtImageData);
           }
         } catch (err) {
           alert('Error parsing .npy volume: ' + err.message);
@@ -1960,6 +2084,10 @@ async function loadVolumeFromURL(url) {
     if (lastParsedMotors) {
       const motorImageData = vtkImageFromNpy(lastParsedMotors);
       renderMotors(motorImageData);
+    }
+    if (lastParsedGroundTruth) {
+      const gtImageData = vtkImageFromNpy(lastParsedGroundTruth);
+      renderGroundTruth(gtImageData);
     }
   } catch (err) {
     alert('Error loading volume from URL: ' + err.message);
@@ -2045,7 +2173,7 @@ document.getElementById("loadPresetVolume").addEventListener("click", () => {
           const motorImageData = vtkImageFromNpy(parsed);
           if (!renderer) {
             console.log('Motors loaded. Please load the base volume first to see the overlay.');
-          } else {
+          } else {  
             renderMotors(motorImageData);
           }
         } else if (shape.length === 3 || shape.length === 2) {
@@ -2065,17 +2193,117 @@ document.getElementById("loadPresetVolume").addEventListener("click", () => {
       }
     });
 
-    // toggles
-    document.getElementById('showVolume').addEventListener('change', (e)=>{
-      if (!currentVolumeActor) return;
-      currentVolumeActor.setVisibility(e.target.checked);
-      if (renderWindow) renderWindow.render();
-    });
-    document.getElementById('showMotors').addEventListener('change', (e)=>{
-      if (!currentMotorActor) return;
-      currentMotorActor.setVisibility(e.target.checked);
-      if (renderWindow) renderWindow.render();
-    });
+    // Ground Truth file upload handler (COMMENTED OUT)
+    // document.getElementById('groundTruthFile').addEventListener('change', (ev)=>{
+    //   const file = ev.target.files[0];
+    //   if (!file) return;
+    //   const reader = new FileReader();
+    //   reader.onload = e => {
+    //     try {
+    //       const parsed = parseNpy(e.target.result);
+    //       const shape = parsed.shape;
+    //       
+    //       // Ground truth should be RGBA volume (Z,Y,X,4)
+    //       if (shape.length === 4 && shape[3] === 4) {
+    //         lastParsedGroundTruth = parsed; // Store separately
+    //         const gtImageData = vtkImageFromNpy(parsed);
+    //         if (!renderer) {
+    //           console.log('Ground truth loaded. Please load the base volume first to see the overlay.');
+    //         } else {
+    //           renderGroundTruth(gtImageData);
+    //         }
+    //         console.log('✓ Ground truth volume loaded:', shape);
+    //       } else {
+    //         throw new Error('Ground truth must be RGBA volume (Z,Y,X,4)');
+    //       }
+    //     } catch (err) {
+    //       alert('Error parsing ground truth .npy: ' + err.message);
+    //     }
+    //   };
+    //   reader.readAsArrayBuffer(file);
+    // });
+
+    // Ground Truth URL load handler (COMMENTED OUT)
+    // document.getElementById('loadGroundTruthUrl').addEventListener('click', async ()=>{
+    //   const url = document.getElementById('groundTruthUrl').value.trim();
+    //   if (!url) return alert('Enter a ground truth URL');
+    //   try {
+    //     const resp = await fetch(url);
+    //     if (!resp.ok) throw new Error('Fetch failed: ' + resp.status);
+    //     const ab = await resp.arrayBuffer();
+    //     const parsed = parseNpy(ab);
+    //     const shape = parsed.shape;
+    //     
+    //     // Ground truth should be RGBA volume (Z,Y,X,4)
+    //     if (shape.length === 4 && shape[3] === 4) {
+    //       lastParsedGroundTruth = parsed; // Store separately
+    //       const gtImageData = vtkImageFromNpy(parsed);
+    //       if (!renderer) {
+    //         console.log('Ground truth loaded. Please load the base volume first to see the overlay.');
+    //       } else {
+    //         renderGroundTruth(gtImageData);
+    //       }
+    //       console.log('✓ Ground truth volume loaded:', shape);
+    //     } else {
+    //       throw new Error('Ground truth must be RGBA volume (Z,Y,X,4)');
+    //     }
+    //   } catch (err) {
+    //     alert('Ground truth load error: ' + err.message);
+    //   }
+    // });
+
+    // toggles - setup with proper DOM ready check
+    function setupToggleListeners() {
+      console.log('setupToggleListeners() called');
+      console.log('document.readyState:', document.readyState);
+      const showVolumeCheckbox = document.getElementById('showVolume');
+      const showMotorsCheckbox = document.getElementById('showMotors');
+      console.log('showVolumeCheckbox:', showVolumeCheckbox);
+      console.log('showMotorsCheckbox:', showMotorsCheckbox);
+      
+      if (showVolumeCheckbox) {
+        showVolumeCheckbox.addEventListener('change', (e)=>{
+          console.log('Show Volume toggled:', e.target.checked);
+          if (!currentVolumeActor) {
+            console.warn('currentVolumeActor is null');
+            return;
+          }
+          currentVolumeActor.setVisibility(e.target.checked);
+          if (renderWindow) renderWindow.render();
+          console.log('Volume visibility set to:', e.target.checked);
+        });
+      }
+      
+      if (showMotorsCheckbox) {
+        showMotorsCheckbox.addEventListener('change', (e)=>{
+          console.log('Show Motors toggled:', e.target.checked);
+          if (!currentMotorActor) {
+            console.warn('currentMotorActor is null');
+            return;
+          }
+          currentMotorActor.setVisibility(e.target.checked);
+          if (renderWindow) renderWindow.render();
+          console.log('Motors visibility set to:', e.target.checked);
+        });
+      }
+      
+      // Ground Truth toggle (COMMENTED OUT)
+      // const showGroundTruthCheckbox = document.getElementById('showGroundTruth');
+      // if (showGroundTruthCheckbox) {
+      //   showGroundTruthCheckbox.addEventListener('change', (e)=>{
+      //     if (!currentGroundTruthActor) return;
+      //     currentGroundTruthActor.setVisibility(e.target.checked);
+      //     if (renderWindow) renderWindow.render();
+      //   });
+      // }
+    }
+
+    // Execute immediately if DOM is ready, otherwise wait for DOMContentLoaded
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupToggleListeners);
+    } else {
+      setupToggleListeners();
+    }
 
     // createNpyBuffer - re-create .npy from parsed representation (basic)
     function createNpyBuffer(parsed) {

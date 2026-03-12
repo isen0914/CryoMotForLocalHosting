@@ -1,0 +1,173 @@
+#MST HYPERPARAMETERS 
+CONF_THRESHOLD = 0.285 #.30
+MST_EDGE_THRESHOLD = 76.0
+MST_MIN_CLUSTER_SIZE = 2
+MST_CONNECTIVITY_METRIC = 'euclidean'
+MST_EDGE_PERCENTILE = 73.5
+MIN_DISTANCE = 104
+
+
+# ============================================================================
+# CELL 19: STEP 3: 3D POST-PROCESSING (MST) - WITH CONFIDENCE FILTERING
+# ============================================================================
+
+print(f"\n{'='*80}")
+print("STEP 3: 3D POST-PROCESSING (MINIMUM SPANNING TREE)")
+print(f"{'='*80}")
+
+from scipy.sparse.csgraph import minimum_spanning_tree
+from scipy.spatial.distance import pdist, squareform
+from scipy.cluster.hierarchy import fcluster, linkage
+import numpy as np
+
+# Filter detections by confidence
+print(f"\n🔍 Filtering detections by confidence threshold...")
+
+detections_by_tomo_filtered = {}
+total_before = sum(len(d) for d in detections_by_tomo.values())
+total_after = 0
+
+for tomo_id, detections in detections_by_tomo.items():
+    filtered = [d for d in detections if d['conf'] >= CONF_THRESHOLD]
+
+    if len(filtered) > 0:
+        detections_by_tomo_filtered[tomo_id] = filtered
+        total_after += len(filtered)
+
+print(f"   ✅ Before filtering: {total_before:,} detections")
+print(f"   ✅ After filtering (≥{CONF_THRESHOLD}): {total_after:,} detections")
+print(f"   ✅ Removed: {total_before - total_after:,} low-confidence detections")
+
+# APPLY MST clustering
+predictions_3d = {}
+
+for tomo_id, detections in detections_by_tomo_filtered.items():
+    if len(detections) < MST_MIN_CLUSTER_SIZE:
+        predictions_3d[tomo_id] = [{
+            'x_norm': d['x_norm'],
+            'y_norm': d['y_norm'],
+            'z': d['z'],
+            'x_pixel': d['x'],
+            'y_pixel': d['y'],
+            'cluster_size': 1,
+            'conf': d['conf'],
+            'rep_image': d['image_path'],
+            'rep_bbox': (d['x'], d['y'], d['w'], d['h']),
+            'rep_slice': d['z']
+        } for d in detections]
+        continue
+
+    # Prepare data in PIXEL SPACE
+    points = np.array([[d['x'], d['y'], d['z']] for d in detections])
+
+    # Compute distance matrix
+    if MST_CONNECTIVITY_METRIC == 'euclidean':
+        dist_matrix = squareform(pdist(points, metric='euclidean'))
+    elif MST_CONNECTIVITY_METRIC == 'manhattan':
+        dist_matrix = squareform(pdist(points, metric='cityblock'))
+    elif MST_CONNECTIVITY_METRIC == 'chebyshev':
+        dist_matrix = squareform(pdist(points, metric='chebyshev'))
+    else:
+        dist_matrix = squareform(pdist(points, metric='euclidean'))
+
+    # Build Minimum Spanning Tree
+    mst = minimum_spanning_tree(dist_matrix)
+    mst_array = mst.toarray()
+
+    # Extract edges from MST
+    edges = []
+    for i in range(len(points)):
+        for j in range(i + 1, len(points)):
+            if mst_array[i, j] > 0:
+                edges.append((i, j, mst_array[i, j]))
+            elif mst_array[j, i] > 0:
+                edges.append((i, j, mst_array[j, i]))
+
+    # Calculate edge threshold (adaptive or fixed)
+    edge_weights = [e[2] for e in edges]
+
+    if MST_EDGE_PERCENTILE > 0:
+        # Use percentile-based threshold (adaptive)
+        adaptive_threshold = np.percentile(edge_weights, MST_EDGE_PERCENTILE)
+        final_threshold = min(adaptive_threshold, MST_EDGE_THRESHOLD)
+    else:
+        # Use fixed threshold
+        final_threshold = MST_EDGE_THRESHOLD
+
+    # Cut edges above threshold to form clusters
+    adjacency = np.zeros_like(dist_matrix)
+    for i, j, weight in edges:
+        if weight <= final_threshold:
+            adjacency[i, j] = 1
+            adjacency[j, i] = 1
+
+    # Find connected components
+    from scipy.sparse import csr_matrix
+    from scipy.sparse.csgraph import connected_components
+
+    n_components, labels = connected_components(
+        csgraph=csr_matrix(adjacency),
+        directed=False,
+        return_labels=True
+    )
+
+    motors = []
+    for comp_id in range(n_components):
+        mask = (labels == comp_id)
+        cluster_dets = [d for d, m in zip(detections, mask) if m]
+
+        if len(cluster_dets) < MST_MIN_CLUSTER_SIZE:
+            continue
+
+        # Compute centroid
+        x_norm = np.mean([d['x_norm'] for d in cluster_dets])
+        y_norm = np.mean([d['y_norm'] for d in cluster_dets])
+        z_avg = np.mean([d['z'] for d in cluster_dets])
+        x_pixel = np.mean([d['x'] for d in cluster_dets])
+        y_pixel = np.mean([d['y'] for d in cluster_dets])
+
+        # Find representative detection
+        distances = [abs(d['z'] - z_avg) for d in cluster_dets]
+        rep_idx = np.argmin(distances)
+        rep_det = cluster_dets[rep_idx]
+
+        motors.append({
+            'x_norm': x_norm,
+            'y_norm': y_norm,
+            'z': z_avg,
+            'x_pixel': x_pixel,
+            'y_pixel': y_pixel,
+            'cluster_size': len(cluster_dets),
+            'conf': np.mean([d['conf'] for d in cluster_dets]),
+            'rep_image': rep_det['image_path'],
+            'rep_bbox': (rep_det['x'], rep_det['y'], rep_det['w'], rep_det['h']),
+            'rep_slice': rep_det['z']
+        })
+
+    # Distance filtering
+    filtered = []
+    for motor in motors:
+        is_dup = False
+        for existing in filtered:
+            dist = np.sqrt(
+                (motor['x_pixel'] - existing['x_pixel'])**2 +
+                (motor['y_pixel'] - existing['y_pixel'])**2 +
+                (motor['z'] - existing['z'])**2
+            )
+            if dist < MIN_DISTANCE:
+                is_dup = True
+                break
+        if not is_dup:
+            filtered.append(motor)
+
+    predictions_3d[tomo_id] = filtered
+
+total_pred = sum(len(m) for m in predictions_3d.values())
+
+print(f"\n✅ MST clustering complete:")
+print(f"   • Input detections: {total_after:,}")
+print(f"   • Final 3D motors: {total_pred}")
+print(f"   • Reduction: {((total_after - total_pred) / total_after * 100):.1f}%")
+print(f"   • Edge threshold used: {final_threshold:.1f} pixels")
+print(f"   • Connectivity metric: {MST_CONNECTIVITY_METRIC}")
+print(f"   • Tomograms with predictions: {len(predictions_3d)}")

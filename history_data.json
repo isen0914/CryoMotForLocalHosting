@@ -286,5 +286,113 @@
     "med_conf": "0",
     "low_conf": "0",
     "created_at": "2026-02-02 19:56:52"
+  },
+  {
+    "id": 25,
+    "timestamp": "02-03-2026 23:21:21",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "709.7s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-03 23:21:21"
+  },
+  {
+    "id": 26,
+    "timestamp": "02-07-2026 02:40:01",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "599.6s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-07 02:40:01"
+  },
+  {
+    "id": 27,
+    "timestamp": "02-07-2026 21:10:16",
+    "total_motors": "2",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "671.0s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-07 21:10:16"
+  },
+  {
+    "id": 28,
+    "timestamp": "02-07-2026 21:10:18",
+    "total_motors": "2",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "662.6s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-07 21:10:18"
+  },
+  {
+    "id": 29,
+    "timestamp": "02-10-2026 01:02:58",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "785.8s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-10 01:02:58"
+  },
+  {
+    "id": 30,
+    "timestamp": "02-10-2026 01:19:21",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "640.3s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-10 01:19:21"
+  },
+  {
+    "id": 31,
+    "timestamp": "02-10-2026 01:36:00",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "659.1s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-10 01:36:00"
+  },
+  {
+    "id": 32,
+    "timestamp": "02-12-2026 19:25:13",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "713.2s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-12 19:25:13"
+  },
+  {
+    "id": 33,
+    "timestamp": "02-14-2026 17:20:13",
+    "total_motors": "1",
+    "avg_distance": null,
+    "avg_fbeta": null,
+    "avg_proc_time": "582.4s",
+    "high_conf": "0",
+    "med_conf": "0",
+    "low_conf": "0",
+    "created_at": "2026-02-14 17:20:13"
   }
 ]

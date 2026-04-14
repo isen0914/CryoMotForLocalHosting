@@ -11,6 +11,8 @@ __pycache__/
 venv/
 env/
 ENV/
+.venv/
+backend/.venv/
 
 # IDEs
 .vscode/
@@ -37,3 +39,7 @@ outputs/
 temp/
 tmp/
 *.tmp
+
+# Notebook artifacts / local generated folders
+.ipynb_checkpoints/
+converted_png1/

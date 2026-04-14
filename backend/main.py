@@ -26,7 +26,12 @@ app = FastAPI(title="YOLO FastAPI Detector")
 # Add CORS middleware immediately after app creation
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8001"],  # Only allow frontend origin
+    allow_origins=[
+        "http://localhost:8001",
+        "http://127.0.0.1:8001",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

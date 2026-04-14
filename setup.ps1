@@ -1,93 +1,113 @@
-# YOLO Flagellar Motor Detection - Setup Script
-# This script automates the setup process for new deployments
+param(
+    [switch]$SkipInstall
+)
+
+$ErrorActionPreference = 'Stop'
 
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host "YOLO Motor Detection - Setup Script" -ForegroundColor Cyan
 Write-Host "=====================================" -ForegroundColor Cyan
 Write-Host ""
 
-# Check if Python is installed
-Write-Host "[1/5] Checking Python installation..." -ForegroundColor Yellow
-try {
-    $pythonVersion = python --version 2>&1
-    Write-Host "  ✓ Found: $pythonVersion" -ForegroundColor Green
-} catch {
-    Write-Host "  ✗ Python not found!" -ForegroundColor Red
-    Write-Host "  Please install Python 3.8+ from https://www.python.org/downloads/" -ForegroundColor Red
-    Write-Host "  Make sure to check 'Add Python to PATH' during installation" -ForegroundColor Yellow
-    pause
-    exit 1
-}
-
-# Check if pip is installed
-Write-Host "[2/5] Checking pip installation..." -ForegroundColor Yellow
-try {
-    $pipVersion = pip --version 2>&1
-    Write-Host "  ✓ Found: $pipVersion" -ForegroundColor Green
-} catch {
-    Write-Host "  ✗ pip not found!" -ForegroundColor Red
-    Write-Host "  Installing pip..." -ForegroundColor Yellow
-    python -m ensurepip --upgrade
-}
-
-# Install backend dependencies
-Write-Host "[3/5] Installing backend dependencies..." -ForegroundColor Yellow
-if (Test-Path "backend\requirements.txt") {
-    Push-Location backend
-    Write-Host "  Installing from requirements.txt..." -ForegroundColor Cyan
-    pip install -r requirements.txt
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  ✓ Backend dependencies installed successfully" -ForegroundColor Green
-    } else {
-        Write-Host "  ✗ Failed to install backend dependencies" -ForegroundColor Red
-        Pop-Location
-        pause
-        exit 1
+function Resolve-PythonLauncher {
+    if (Get-Command python -ErrorAction SilentlyContinue) {
+        return @{ Exe = 'python'; Args = @() }
     }
-    Pop-Location
-} else {
-    Write-Host "  ✗ backend\requirements.txt not found!" -ForegroundColor Red
-    pause
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        return @{ Exe = 'py'; Args = @('-3') }
+    }
+    return $null
+}
+
+$root = $PSScriptRoot
+if (-not $root) {
+    $root = (Get-Location).Path
+}
+
+$backendDir = Join-Path $root 'backend'
+$requirements = Join-Path $backendDir 'requirements.txt'
+$venvDir = Join-Path $backendDir '.venv'
+$venvPython = Join-Path $venvDir 'Scripts\python.exe'
+
+Write-Host "[1/5] Checking Python installation..." -ForegroundColor Yellow
+$py = Resolve-PythonLauncher
+if (-not $py) {
+    Write-Host "  ERROR: Python not found (neither 'python' nor 'py' launcher)." -ForegroundColor Red
+    Write-Host "  Install Python 3.8+ from https://www.python.org/downloads/" -ForegroundColor Red
+    Write-Host "  During install, check 'Add Python to PATH'." -ForegroundColor Yellow
     exit 1
 }
 
-# Check for model files
+try {
+    $pythonVersion = & $py.Exe @($py.Args) --version 2>&1
+    Write-Host "  OK: $pythonVersion" -ForegroundColor Green
+}
+catch {
+    Write-Host "  ERROR: Failed running Python: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "[2/5] Creating venv (backend\\.venv)..." -ForegroundColor Yellow
+if (-not (Test-Path $backendDir)) {
+    Write-Host "  ERROR: backend folder not found at: $backendDir" -ForegroundColor Red
+    exit 1
+}
+
+if (-not (Test-Path $venvDir)) {
+    & $py.Exe @($py.Args) -m venv $venvDir
+    Write-Host "  OK: Created venv: $venvDir" -ForegroundColor Green
+}
+else {
+    Write-Host "  OK: Venv already exists: $venvDir" -ForegroundColor Green
+}
+
+if (-not (Test-Path $venvPython)) {
+    Write-Host "  ERROR: Venv python not found at: $venvPython" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "[3/5] Installing backend dependencies into venv..." -ForegroundColor Yellow
+if (-not (Test-Path $requirements)) {
+    Write-Host "  ERROR: requirements.txt not found at: $requirements" -ForegroundColor Red
+    exit 1
+}
+
+if ($SkipInstall) {
+    Write-Host "  NOTE: Skipping dependency installation (-SkipInstall)." -ForegroundColor Cyan
+}
+else {
+    & $venvPython -m pip install --upgrade pip setuptools wheel
+    & $venvPython -m pip install -r $requirements
+    Write-Host "  OK: Dependencies installed" -ForegroundColor Green
+}
+
 Write-Host "[4/5] Checking for model files..." -ForegroundColor Yellow
 $modelFound = $false
-if (Test-Path "backend\best.quant.onnx") {
-    Write-Host "  ✓ Found: best.quant.onnx (Quantized ONNX model)" -ForegroundColor Green
+if (Test-Path (Join-Path $backendDir 'best.quant.onnx')) {
+    Write-Host "  OK: Found best.quant.onnx" -ForegroundColor Green
     $modelFound = $true
 }
-if (Test-Path "backend\best.pt") {
-    Write-Host "  ✓ Found: best.pt (PyTorch model)" -ForegroundColor Green
+if (Test-Path (Join-Path $backendDir 'best.pt')) {
+    Write-Host "  OK: Found best.pt" -ForegroundColor Green
     $modelFound = $true
 }
 if (-not $modelFound) {
-    Write-Host "  ⚠ No model files found in backend/" -ForegroundColor Yellow
-    Write-Host "  Please place your trained model (best.pt or best.quant.onnx) in the backend/ directory" -ForegroundColor Yellow
+    Write-Host "  WARNING: No model files found in backend/" -ForegroundColor Yellow
+    Write-Host "           Place best.pt or best.quant.onnx into backend/ before running detection." -ForegroundColor Yellow
 }
 
-# Create outputs directory if it doesn't exist
-Write-Host "[5/5] Setting up output directories..." -ForegroundColor Yellow
-if (-not (Test-Path "backend\outputs")) {
-    New-Item -ItemType Directory -Path "backend\outputs" | Out-Null
-    Write-Host "  ✓ Created backend\outputs directory" -ForegroundColor Green
-} else {
-    Write-Host "  ✓ Outputs directory already exists" -ForegroundColor Green
+Write-Host "[5/5] Ensuring output directories exist..." -ForegroundColor Yellow
+$outputsDir = Join-Path $backendDir 'outputs'
+if (-not (Test-Path $outputsDir)) {
+    New-Item -ItemType Directory -Path $outputsDir | Out-Null
+    Write-Host "  OK: Created backend\\outputs directory" -ForegroundColor Green
+}
+else {
+    Write-Host "  OK: Outputs directory already exists" -ForegroundColor Green
 }
 
-# Final summary
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host "Setup Complete!" -ForegroundColor Green
+Write-Host "Setup Complete" -ForegroundColor Green
 Write-Host "=====================================" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "  1. Ensure your model file (best.pt or best.quant.onnx) is in backend/" -ForegroundColor White
-Write-Host "  2. Run: .\restart.ps1" -ForegroundColor White
-Write-Host "  3. Access frontend at: http://localhost:8001" -ForegroundColor White
-Write-Host "  4. Access backend API at: http://localhost:8000" -ForegroundColor White
-Write-Host "  5. View API docs at: http://localhost:8000/docs" -ForegroundColor White
-Write-Host ""
-Write-Host "Press any key to exit..." -ForegroundColor Gray
-pause | Out-Null
+Write-Host "Next: run .\\restart.ps1" -ForegroundColor Yellow
